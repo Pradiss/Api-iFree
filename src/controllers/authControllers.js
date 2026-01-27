@@ -1,10 +1,10 @@
-const { User, Establishment, Band, Musician } = require("../models")
+const { User, Establishment, Band, Musician,MusicianMedia, Genre, Instrument } = require("../models")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 
 exports.register = async (req, res) => {
   try {
-    console.log("Dados recebidos:", req.body) // Debug
+    console.log("Dados recebidos:", req.body) 
     const user = await User.create(req.body)
     return res.status(201).json({
       id: user.id,
@@ -13,7 +13,7 @@ exports.register = async (req, res) => {
       role: user.role
     })
   } catch (error) {
-    console.error("Erro completo:", error) // ← Adicione isso para ver o erro real
+    console.error("Erro completo:", error) 
     
     if (error.name === "SequelizeValidationError") {
       return res.status(400).json({
@@ -21,10 +21,10 @@ exports.register = async (req, res) => {
       })
     }
     
-    // ← Mostre o erro real aqui também
+    
     res.status(500).json({ 
       error: "Error registering user.",
-      details: error.message // ← Adicione isso
+      details: error.message 
     })
   }
 }
@@ -61,31 +61,56 @@ exports.login = async (req, res) => {
 
 
 exports.userAll = async (req, res) => {
-
-  const { id } = req.params
-    try{
+  try {
     const users = await User.findAll({
-      attributes: { exclude: ["password"] },
+      attributes: ["id", "name", "email", "role"],  
       include: [
         {
           model: Musician,
           as: "musician",
-          attributes: { exclude: ["id","user_id"] }
+          attributes: { 
+            exclude: ["user_id", "createdAt", "updatedAt"] 
+          },
+          include: [
+            {
+              model: MusicianMedia,
+              as: "media",
+              attributes: ["id", "type", "url", "title"],
+              limit: 3  
+            },
+            {
+              model: Genre,
+              as: "genres",
+              attributes: ["id", "name"],
+              through: { attributes: [] }
+            },
+            {
+              model: Instrument,
+              as: "instruments",
+              attributes: ["id", "name"],
+              through: { attributes: [] }
+            }
+          ]
         },
         {
           model: Band,
           as: "band",
-          attributes: { exclude: ["id","user_id"]}
+          attributes: { 
+            exclude: ["user_id", "createdAt", "updatedAt"] 
+          }
         },
         {
           model: Establishment,
           as: "establishment",
-          attributes: { exclude: ["id","user_id"] }
-        },
-      ],
+          attributes: { 
+            exclude: ["user_id", "createdAt", "updatedAt"] 
+          }
+        }
+      ]
     });
-
+    
     res.status(200).json(users)
+    
   } catch (error) {
     res.status(500).json({
       error: "Users not found",

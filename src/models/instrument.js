@@ -1,20 +1,19 @@
 const { DataTypes } = require("sequelize")
 
-module.exports = (connectionBank) => {
-    const Genre = connectionBank.define("Genre", {
+module.exports = (connectionBank) =>{
+    const Instrument = connectionBank.define('Instrument', {
         name: {
             type: DataTypes.STRING,
-            allowNull: false,
+            allowNull:false,
             validate: {
-                notEmpty:{
+                notEmpty:{                      
                     msg: "Name is Required"
                 }
             }
         }
     },{
-        tableName:"genres",
+        tableName: "instruments",
         timestamps: true,
-
     })
-    return Genre;
+    return Instrument;
 }

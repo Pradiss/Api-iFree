@@ -19,7 +19,7 @@ module.exports = (connectionBank) => {
         allowNull: false,
         validate: {
           notEmpty: {
-            msg: "Name is Required",
+            msg: "Name artistic is required",
           },
           len: {
             args: [2, 100],
@@ -29,7 +29,7 @@ module.exports = (connectionBank) => {
       },
       city: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
         validate: {
           notEmpty: {
             msg: "City is Required",
@@ -38,14 +38,14 @@ module.exports = (connectionBank) => {
       },
       experience_years: {
         type: DataTypes.INTEGER,
-        allowNull: false,
+        allowNull: true,
         validate: {
           min: 0,
         },
       },
       bio: {
         type: DataTypes.TEXT,
-        allowNull: false,
+        allowNull: true,
         validate: {
           notEmpty: {
             msg: "Bio is required",
