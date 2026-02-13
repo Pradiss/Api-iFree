@@ -1,4 +1,4 @@
-const { User, Establishment, Band, Musician,MusicianMedia, Genre, Instrument } = require("../models")
+const { User, Establishment, Band, Musician,  Media, Genre, Instrument } = require("../models")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 
@@ -29,7 +29,6 @@ exports.register = async (req, res) => {
   }
 }
 
-
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body
@@ -59,35 +58,27 @@ exports.login = async (req, res) => {
   }
 }
 
-
 exports.userAll = async (req, res) => {
   try {
     const users = await User.findAll({
-      attributes: ["id", "name", "email", "role"],  
+      attributes: [ "name", "email", "role"],
       include: [
+        
         {
           model: Musician,
           as: "musician",
-          attributes: { 
-            exclude: ["user_id", "createdAt", "updatedAt"] 
-          },
+          attributes: { exclude: ["id","user_id", "createdAt", "updatedAt"] },
           include: [
-            {
-              model: MusicianMedia,
-              as: "media",
-              attributes: ["id", "type", "url", "title"],
-              limit: 3  
-            },
             {
               model: Genre,
               as: "genres",
-              attributes: ["id", "name"],
+              attributes: [ "name"],
               through: { attributes: [] }
             },
             {
               model: Instrument,
               as: "instruments",
-              attributes: ["id", "name"],
+              attributes: [ "name"],
               through: { attributes: [] }
             }
           ]
@@ -95,26 +86,56 @@ exports.userAll = async (req, res) => {
         {
           model: Band,
           as: "band",
-          attributes: { 
-            exclude: ["user_id", "createdAt", "updatedAt"] 
-          }
+          attributes: { exclude: ["id", "user_id", "createdAt", "updatedAt"] },
+          include: [
+            {
+              model: Genre,
+              as: "genres",
+              attributes: ["name"],
+              through: { attributes: [] }
+            }
+          ]
         },
         {
           model: Establishment,
           as: "establishment",
-          attributes: { 
-            exclude: ["user_id", "createdAt", "updatedAt"] 
-          }
-        }
+          attributes: { exclude: ["id", "user_id", "createdAt", "updatedAt"] }
+        },
+        {
+          model: Media,
+          as: "medias",
+          attributes: [ "type", "title", "url", "owner_type"]
+        },
       ]
     });
-    
-    res.status(200).json(users)
-    
+
+    res.json(users);
+
   } catch (error) {
     res.status(500).json({
       error: "Users not found",
       details: error.message
-    })
+    });
   }
-}
+};
+
+
+
+exports.deleteAll = async (req, res) => {
+  try {
+   await User.destroy({
+      where: {},
+      force: true
+    });
+
+    return res.status(200).json({
+      message: "All users deleted successfully"
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      error: "Error deleting users",
+      details: error.message
+    });
+  }
+};

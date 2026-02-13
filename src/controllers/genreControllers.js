@@ -11,7 +11,7 @@ exports.register = async (req, res) => {
 
 exports.showAll = async (req, res) => {
     try{
-        const genre = await Genre.findAll()
+        const genre = await Genre.findAll({ attributes: { exclude: [ "createdAt", "updatedAt"] }})
         res.status(200).json(genre)
     }catch(error){
         res.status(500).json( {error: "Not Found ", details: error.message})

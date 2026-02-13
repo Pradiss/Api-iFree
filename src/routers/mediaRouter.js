@@ -1,11 +1,10 @@
 const express = require("express")
 const router = express.Router()
-
 const mediaController = require("../controllers/mediaControllers")
-const role = require("../middlewares/rolemiddlewares")
 const auth = require("../middlewares/authmiddlewares")
 
-router.post("/", auth, role("musician"), mediaController.create)
+router.post("/", auth, mediaController.create)
+router.get("/", mediaController.show)
 
 
-module.exports = router 
+module.exports = router

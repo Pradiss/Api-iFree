@@ -4,8 +4,14 @@ module.exports = (connectionBank) => {
   const Musician = connectionBank.define(
     "Musician",
     {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+      },
+
       user_id: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
         unique: true,
         references: {
@@ -13,7 +19,9 @@ module.exports = (connectionBank) => {
           key: "id",
         },
         onDelete: "CASCADE",
+        onUpdate: "CASCADE",
       },
+
       name_artistic: {
         type: DataTypes.STRING,
         allowNull: false,
@@ -27,15 +35,12 @@ module.exports = (connectionBank) => {
           },
         },
       },
+
       city: {
         type: DataTypes.STRING,
         allowNull: true,
-        validate: {
-          notEmpty: {
-            msg: "City is Required",
-          },
-        },
       },
+
       experience_years: {
         type: DataTypes.INTEGER,
         allowNull: true,
@@ -43,15 +48,12 @@ module.exports = (connectionBank) => {
           min: 0,
         },
       },
+
       bio: {
         type: DataTypes.TEXT,
         allowNull: true,
-        validate: {
-          notEmpty: {
-            msg: "Bio is required",
-          },
-        },
       },
+
       profile_image: {
         type: DataTypes.STRING,
         allowNull: true,
@@ -60,8 +62,9 @@ module.exports = (connectionBank) => {
     {
       tableName: "musicians",
       timestamps: true,
-    
-    },
+      underscored: true,
+    }
   );
+
   return Musician;
 };

@@ -5,7 +5,9 @@ const { connectionBank } = require("./models")
 
 const PORT = parseInt(`${process.env.PORT || 3000}`)
 connectionBank.sync().then(() => {
-    app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+    app.listen(PORT, () => 
+        console.log(`🚀 Server running on http://localhost:${PORT}`)
+    );
 })
 
 
