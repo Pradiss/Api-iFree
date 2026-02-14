@@ -9,9 +9,11 @@ const Instrument = require("./instrument")(connectionBank);
 const Media = require("./media")(connectionBank);
 const Availability = require("./availability")(connectionBank);
 const BandGenre = require("./bandGenre")(connectionBank);
-
 const MusicianGenre = require("./musicianGenre")(connectionBank);
 const MusicianInstrument = require("./musicianInstrument")(connectionBank);
+const Message = require("./message")(connectionBank)
+
+
 
 User.hasOne(Musician, { foreignKey: "user_id", as: "musician" });
 Musician.belongsTo(User, { foreignKey: "user_id", as: "user" });
@@ -22,22 +24,73 @@ Band.belongsTo(User, { foreignKey: "user_id", as: "user" });
 User.hasOne(Establishment, { foreignKey: "user_id", as: "establishment" });
 Establishment.belongsTo(User, { foreignKey: "user_id", as: "user" });
 
-Musician.hasMany(Availability, {
-  foreignKey: "musician_id",
-  as: "availabilities",
+User.hasMany(Message, {
+  foreignKey: "sender_user_id",
+  as: "sent_messages"
 });
 
-Availability.belongsTo(Musician, { foreignKey: "musician_id", as: "musician" });
+Message.belongsTo(User, {
+  foreignKey: "sender_user_id",
+  as: "sender"
+});
+
+
+User.hasMany(Message, {
+  foreignKey: "receiver_user_id",
+  as: "received_messages"
+});
+
+Message.belongsTo(User, {
+  foreignKey: "receiver_user_id",
+  as: "receiver"
+});
+
+Musician.hasMany(Availability, {
+  foreignKey: 'owner_id',
+  constraints: false,
+  scope: {
+    owner_type: 'musician'
+  },
+  as: 'availabilities'
+});
+
+Availability.belongsTo(Musician, {
+  foreignKey: 'owner_id',
+  constraints: false,
+  as: 'musician'
+});
+
 
 Band.hasMany(Availability, {
-  foreignKey: "band_id",
-  as: "availabilities",
+  foreignKey: 'owner_id',
+  constraints: false,
+  scope: {
+    owner_type: 'band'
+  },
+  as: 'availabilities'
 });
 
 Availability.belongsTo(Band, {
-  foreignKey: "band_id",
-  as: "band",
+  foreignKey: 'owner_id',
+  constraints: false,
+  as: 'band'
 });
+
+Establishment.hasMany(Availability, {
+  foreignKey: 'owner_id',
+  constraints: false,
+  scope: {
+    owner_type: 'establishment'
+  },
+  as: 'availabilities'
+});
+
+Availability.belongsTo(Establishment, {
+  foreignKey: 'owner_id',
+  constraints: false,
+  as: 'establishment'
+});
+
 
 Musician.belongsToMany(Genre, {
   through: "musician_genres",
@@ -67,18 +120,21 @@ Instrument.belongsToMany(Musician, {
   as: "musicians",
 });
 
+
 Band.belongsToMany(Genre, {
   through: "band_genres",
   foreignKey: "band_id",
   otherKey: "genre_id",
   as: "genres",
 });
+
 Genre.belongsToMany(Band, {
   through: "band_genres",
   foreignKey: "genre_id",
   otherKey: "band_id",
   as: "bands",
 });
+
 
 User.hasMany(Media, {
   foreignKey: "user_id",
@@ -89,6 +145,7 @@ Media.belongsTo(User, {
   foreignKey: "user_id",
   as: "user",
 });
+
 
 module.exports = {
   connectionBank,
@@ -103,4 +160,5 @@ module.exports = {
   BandGenre,
   MusicianGenre,
   MusicianInstrument,
+  Message
 };

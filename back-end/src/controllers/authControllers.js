@@ -1,4 +1,4 @@
-const { User, Establishment, Band, Musician,  Media, Genre, Instrument } = require("../models")
+const { User, Establishment, Band, Musician,  Media, Genre, Instrument, Availability } = require("../models")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 
@@ -80,6 +80,13 @@ exports.userAll = async (req, res) => {
               as: "instruments",
               attributes: [ "name"],
               through: { attributes: [] }
+            },
+            {
+              model: Availability,
+              as: "availabilities",
+              attributes: { 
+                exclude: ["id", "owner_id", "createdAt", "updatedAt"] 
+              }
             }
           ]
         },
@@ -93,6 +100,13 @@ exports.userAll = async (req, res) => {
               as: "genres",
               attributes: ["name"],
               through: { attributes: [] }
+            },
+            {
+              model: Availability,
+              as: "availabilities",
+              attributes:{
+                exclude:[ "id","owner_id", "createdAt", "updatedAt" ]
+              }
             }
           ]
         },

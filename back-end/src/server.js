@@ -10,6 +10,7 @@ const genreRouter = require("./routers/genreRouter")
 const instrumentRouter = require("./routers/instrumentRouter")
 const mediaRouter = require("./routers/mediaRouter")
 const availabilityRouter = require("./routers/availabilityRouter")
+const messageRouter = require("./routers/messageRouter")
 const app = express()
 
 app.use(cors())
@@ -23,6 +24,7 @@ app.use("/api/genre", genreRouter)
 app.use("/api/instrument", instrumentRouter)
 app.use("/api/media", mediaRouter)
 app.use("/api/availability", availabilityRouter)
+app.use("/api/messages",messageRouter)
 
 module.exports = app
 

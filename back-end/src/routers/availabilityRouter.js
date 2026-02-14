@@ -5,7 +5,7 @@ const availability = require("../controllers/availabilityControllers")
 const auth = require("../middlewares/authmiddlewares")
 const hasProfile = require("../middlewares/hasProfile");
 
-router.post("/", auth, hasProfile(["musician", "band"]), availability.register);
+router.post("/create", auth, hasProfile(["musician", "band"]), availability.register);
 router.get("/", auth, hasProfile(["musician", "band"]), availability.showAll);
 
 

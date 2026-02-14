@@ -9,8 +9,6 @@ module.exports = (connectionBank) => {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
       },
-      
-      
       owner_id: {
         type: DataTypes.UUID,
         allowNull: false,
@@ -33,8 +31,6 @@ module.exports = (connectionBank) => {
           }
         }
       },
-      
-     
       date: {
         type: DataTypes.DATEONLY,
         allowNull: false,
