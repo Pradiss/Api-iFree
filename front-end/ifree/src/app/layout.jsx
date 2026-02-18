@@ -1,3 +1,5 @@
+import "./global.css";
+
 export const metadata = {
   title: "Meu App",
   description: "Projeto Next",
