@@ -9,7 +9,7 @@ export default function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+ 
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -20,14 +20,12 @@ export default function LoginForm() {
     }
 
     try {
-      setLoading(true);
+     
 
-      const response = await api.post("/auth/login", {
+      const response = await api.post("api/auth/login", {
         email,
         password,
       });
-
-      console.log("Resposta login:", response.data);
 
       const token = response?.data?.token;
 
@@ -36,18 +34,14 @@ export default function LoginForm() {
         return;
       }
 
-      // salva token
       localStorage.setItem("token", token);
 
-      // redireciona
       router.push("/");
 
     } catch (error) {
       console.error("Erro no login:", error);
-      alert("Email ou senha inválidos");
-    } finally {
-      setLoading(false);
-    }
+      alert("Credenciais inválidas");
+    } 
   };
 
   return (
@@ -57,7 +51,7 @@ export default function LoginForm() {
       </h2>
 
       <form className="space-y-6" onSubmit={handleLogin}>
-        {/* EMAIL */}
+     
         <div>
           <label className="block text-sm font-semibold text-green-900 mb-2">
             EMAIL
@@ -71,7 +65,7 @@ export default function LoginForm() {
           />
         </div>
 
-        {/* PASSWORD */}
+        
         <div>
           <label className="block text-sm font-semibold text-green-900 mb-2">
             PASSWORD
@@ -85,17 +79,16 @@ export default function LoginForm() {
           />
         </div>
 
-        {/* BOTÃO LOGIN */}
+        
         <button
           type="submit"
-          disabled={loading}
-          className="bg-green-700 text-white px-6 py-3 mt-4 hover:bg-green-800 transition disabled:opacity-50"
+          className="bg-green-700 text-white px-7 py-3 mt-4 hover:bg-green-800 transition disabled:opacity-50"
         >
-          {loading ? "Entrando..." : "LOG IN"}
+          Login
         </button>
       </form>
 
-      {/* SIGN UP */}
+    
       <div className="mt-8 text-sm text-green-900 flex justify-between">
         <span>DONT HAVE AN ACCOUNT?</span>
         <button

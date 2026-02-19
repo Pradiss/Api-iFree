@@ -1,18 +1,29 @@
 "use client";
-
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import LogoutButton from "../components/auth/LogoutButton";
+
 
 export default function Home() {
-  const router = useRouter();
+  const router = useRouter()
+  
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token");
 
-    if (!token) {
-      router.push("/login");
-    }
-  }, []);
+  if (!token) {
+    router.push("/login");
+  }
+}, [router]);
 
-  return <h1>Home protegida 🔐</h1>;
+  return (
+    <div>
+      <h1>Teste API</h1>
+
+      <div>
+        <LogoutButton />
+      </div>
+     
+    </div>
+  );
 }
