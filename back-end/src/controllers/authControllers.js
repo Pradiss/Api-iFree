@@ -6,12 +6,22 @@ exports.register = async (req, res) => {
   try {
     console.log("Dados recebidos:", req.body) 
     const user = await User.create(req.body)
+
+      const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
     return res.status(201).json({
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      token
     })
+    
+   
   } catch (error) {
     console.error("Erro completo:", error) 
     
@@ -25,6 +35,27 @@ exports.register = async (req, res) => {
     res.status(500).json({ 
       error: "Error registering user.",
       details: error.message 
+    })
+  }
+}
+
+exports.me = async(req, res) => {
+  try{
+
+    const user = await User.findByPk(req.user.id, {
+      attributes: [ "name", "email", "role"]
+    })
+
+    if(!user){
+      return res.status(404).json({ error: "User not Found"})
+    }
+
+    return res.json(user)
+
+  }catch(error){
+    return res.status(500).json({
+      error:" Error fecthin user",
+      details: error.message
     })
   }
 }
@@ -51,7 +82,8 @@ exports.login = async (req, res) => {
       { expiresIn: "1d" }
     )
 
-    return res.json({ token })
+    return res.json({ token, role: user.role, profileCompleted: user.profileCompleted })
+
   } catch (error) {
     console.error(error)
     return res.status(500).json({ error: "Error login " })

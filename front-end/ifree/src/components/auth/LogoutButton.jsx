@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { api } from "../../services/api"
 
 export default function LogoutButton() {
   const router = useRouter();
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    router.push("/login");
+    delete api.defaults.headers.common["Authorization"];
+    router.replace("/login");
   };
 
   return (
