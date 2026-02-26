@@ -161,9 +161,16 @@ export default function RegisterForm() {
           </>
         )}
       </form>
-
       <div className="mt-8 text-sm text-green-900 flex justify-between">
-        <span>Already have an account?</span>
+        <span>
+          Already have an account?{" "}
+          <span
+            onClick={() => router.push("/login")}
+            className="underline cursor-pointer font-semibold hover:text-green-700 transition"
+          >
+            Click here
+          </span>
+        </span>
         <button
           type="button"
           className="underline"

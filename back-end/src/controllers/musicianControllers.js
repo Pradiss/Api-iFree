@@ -1,8 +1,8 @@
-const { Musician, Genre, Instrument, User } = require("../models"); // ⚠️ Adicione User aqui
+const { Musician, Genre, Instrument, User } = require("../models");
 
 exports.register = async (req, res) => {
   try {
-    // Verificar se o usuário existe
+    
     const user = await User.findByPk(req.user.id);
     if (!user) {
       return res.status(404).json({
@@ -10,7 +10,7 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Verificar se já existe músico para este usuário
+    
     const existingMusician = await Musician.findOne({
       where: { user_id: req.user.id }
     });
@@ -21,7 +21,7 @@ exports.register = async (req, res) => {
       });
     }
 
-    // ✅ VALIDAR GÊNEROS ANTES DE CRIAR O MÚSICO
+    
     if (Array.isArray(req.body.genre_ids) && req.body.genre_ids.length > 0) {
       const genres = await Genre.findAll({
         where: { id: req.body.genre_ids }
@@ -34,7 +34,7 @@ exports.register = async (req, res) => {
       }
     }
 
-    // ✅ VALIDAR INSTRUMENTOS
+    
     if (Array.isArray(req.body.instrument_ids) && req.body.instrument_ids.length > 0) {
       const instruments = await Instrument.findAll({
         where: { id: req.body.instrument_ids }
@@ -47,7 +47,7 @@ exports.register = async (req, res) => {
       }
     }
 
-    // Criar o músico
+   
     const musician = await Musician.create({
       user_id: req.user.id,
       name_artistic: req.body.name_artistic,
@@ -57,7 +57,7 @@ exports.register = async (req, res) => {
       profile_image: req.body.profile_image,
     });
 
-    // Associar gêneros e instrumentos
+    
     if (Array.isArray(req.body.genre_ids) && req.body.genre_ids.length > 0) {
       await musician.setGenres(req.body.genre_ids);
     }
@@ -72,7 +72,7 @@ exports.register = async (req, res) => {
 
     return res.status(201).json(musicianWithRelations);
   } catch (error) {
-    console.error("Error:", error); // ✅ Log completo para debug
+    console.error("Error:", error); 
     return res.status(400).json({
       error: "Error creating musician",
       details: error.message
