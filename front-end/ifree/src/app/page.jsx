@@ -11,24 +11,20 @@ useEffect(() => {
   const token = localStorage.getItem("token");
   const profileCompleted = localStorage.getItem("profileCompleted");
 
-  console.log("TOKEN:", token);
-  console.log("PROFILE:", profileCompleted);
-
   if (!token) {
     router.replace("/login");
     return;
   }
 
-  if (!profileCompleted) {
-    router.replace("/complete-profile");
-    return;
-  }
-
+  if (profileCompleted !== "true") {
+  router.replace("/complete-profile");
+  return;
+}
   setAuthorized(true);
 }, [router]);
 
   if (!authorized) {
-    return null; // NÃO renderiza nada até validar
+    return null;
   }
 
   return (

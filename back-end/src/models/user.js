@@ -63,6 +63,10 @@ module.exports = (connectionBank) => {
           },
         },
       },
+      profileCompleted: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+      },
     },
     {
       tableName: "users",

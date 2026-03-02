@@ -57,6 +57,11 @@ exports.register = async (req, res) => {
       profile_image: req.body.profile_image,
     });
 
+    await User.update(
+      { profileCompleted: true },
+      { where: { id: req.user.id } }
+    );
+
     
     if (Array.isArray(req.body.genre_ids) && req.body.genre_ids.length > 0) {
       await musician.setGenres(req.body.genre_ids);

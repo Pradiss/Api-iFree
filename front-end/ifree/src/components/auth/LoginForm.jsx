@@ -1,37 +1,36 @@
 "use client";
-
 import { useState } from "react";
 import { api } from "../../services/api";
 import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setErrorMessage("");
 
     if (!email || !password) {
-      alert("Preencha email e senha");
+      setErrorMessage("Preencha email e senha");
       return;
     }
 
     try {
-      const response = await api.post("/auth/login", {
-        email,
-        password,
-      });
+      const response = await api.post("/auth/login", { email, password });
+
       console.log("data completo:", response.data);
 
       const { token, role, profileCompleted } = response?.data;
 
       localStorage.setItem("token", token);
       localStorage.setItem("role", role);
+      localStorage.setItem("profileCompleted", profileCompleted);
 
       if (!token) {
-        alert("Token não retornado pelo backend");
+        setErrorMessage("Token não retornado pelo backend");
         return;
       }
 
@@ -43,7 +42,7 @@ export default function LoginForm() {
       router.push("/");
     } catch (error) {
       console.error("Erro no login:", error);
-      alert("Credenciais inválidas");
+      setErrorMessage("Credenciais inválidas. Verifique seu email e senha.");
     }
   };
 
@@ -52,6 +51,13 @@ export default function LoginForm() {
       <h2 className="text-3xl font-bold text-green-900 mb-8">YOUR ACCOUNT</h2>
 
       <form className="space-y-6" onSubmit={handleLogin}>
+
+        {errorMessage && (
+          <div className="p-1  text-red-700 text-sm font-medium">
+            {errorMessage}
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-semibold text-green-900 mb-2">
             EMAIL
@@ -77,6 +83,7 @@ export default function LoginForm() {
             required
           />
         </div>
+
 
         <button
           type="submit"
