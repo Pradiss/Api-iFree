@@ -6,6 +6,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+      poppins: ['Poppins', 'sans-serif'],
+    },
       colors: {
         "brand-emerald": "#00C896",
         "bg-deep": "#0A0A0F",

@@ -7,19 +7,22 @@ import Cropper from "react-easy-crop";
 
 export default function BandForm() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
 
+  const [step, setStep] = useState(1);
+  const totalSteps = 3;
+
+  const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+
+  const [genres, setGenres] = useState([]);
 
   const [formData, setFormData] = useState({
     name: "",
     city: "",
-    genre_description: "",
     bio: "",
-    profile_image: "",
+    genre_description: "",
     genre_ids: [],
+    profile_image: "",
   });
 
   const [image, setImage] = useState(null);
@@ -27,18 +30,16 @@ export default function BandForm() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-  const [genres, setGenres] = useState([]);
-
   useEffect(() => {
-    const fetchData = async () => {
+    async function fetchGenres() {
       try {
-        const genresRes = await api.get("/genre");
-        setGenres(genresRes.data || []);
-      } catch (error) {
-        console.error("Error fetching genres:", error);
+        const res = await api.get("/genre");
+        setGenres(res.data || []);
+      } catch (err) {
+        console.error(err);
       }
-    };
-    fetchData();
+    }
+    fetchGenres();
   }, []);
 
   const handleChange = (e) => {
@@ -48,21 +49,22 @@ export default function BandForm() {
 
   const handleToggleGenre = (id) => {
     setFormData((prev) => {
-      const currentIds = prev.genre_ids;
-      if (currentIds.includes(id)) {
-        return { ...prev, genre_ids: currentIds.filter((item) => item !== id) };
-      } else {
-        return { ...prev, genre_ids: [...currentIds, id] };
-      }
+      const exists = prev.genre_ids.includes(id);
+      return {
+        ...prev,
+        genre_ids: exists
+          ? prev.genre_ids.filter((g) => g !== id)
+          : [...prev.genre_ids, id],
+      };
     });
   };
 
-  const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
+  const onCropComplete = useCallback((_, croppedAreaPixels) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
   const onFileChange = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files?.length > 0) {
       const reader = new FileReader();
       reader.addEventListener("load", () => setImage(reader.result));
       reader.readAsDataURL(e.target.files[0]);
@@ -70,34 +72,32 @@ export default function BandForm() {
   };
 
   const createCroppedImage = async () => {
-    try {
-      const canvas = document.createElement("canvas");
-      const img = new Image();
-      img.src = image;
-      await new Promise((resolve) => (img.onload = resolve));
+    const canvas = document.createElement("canvas");
+    const img = new Image();
+    img.src = image;
 
-      const ctx = canvas.getContext("2d");
-      canvas.width = croppedAreaPixels.width;
-      canvas.height = croppedAreaPixels.height;
+    await new Promise((resolve) => (img.onload = resolve));
 
-      ctx.drawImage(
-        img,
-        croppedAreaPixels.x,
-        croppedAreaPixels.y,
-        croppedAreaPixels.width,
-        croppedAreaPixels.height,
-        0,
-        0,
-        croppedAreaPixels.width,
-        croppedAreaPixels.height
-      );
+    const ctx = canvas.getContext("2d");
 
-      return new Promise((resolve) => {
-        canvas.toBlob((blob) => resolve(blob), "image/jpeg");
-      });
-    } catch (e) {
-      console.error(e);
-    }
+    canvas.width = croppedAreaPixels.width;
+    canvas.height = croppedAreaPixels.height;
+
+    ctx.drawImage(
+      img,
+      croppedAreaPixels.x,
+      croppedAreaPixels.y,
+      croppedAreaPixels.width,
+      croppedAreaPixels.height,
+      0,
+      0,
+      croppedAreaPixels.width,
+      croppedAreaPixels.height
+    );
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), "image/jpeg");
+    });
   };
 
   const handleUploadAndFinish = async (e) => {
@@ -112,15 +112,16 @@ export default function BandForm() {
 
       if (image && croppedAreaPixels) {
         const croppedBlob = await createCroppedImage();
+
         const uploadData = new FormData();
         uploadData.append("image", croppedBlob, "profile.jpg");
 
         const uploadRes = await api.post("/media/upload", uploadData, {
           headers: {
-            "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${token}`,
           },
         });
+
         finalImageUrl = uploadRes.data.url;
       }
 
@@ -130,14 +131,11 @@ export default function BandForm() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setSuccessMessage("Perfil cadastrado com sucesso! Redirecionando...");
       localStorage.setItem("profileCompleted", true);
-      setTimeout(() => router.push("/"), 2000);
-    } catch (error) {
+      router.push("/");
+    } catch (err) {
       setErrorMessage(
-        error.response?.data?.error ||
-          error.response?.data?.message ||
-          "Erro ao salvar perfil"
+        err.response?.data?.message || "Erro ao salvar perfil"
       );
     } finally {
       setLoading(false);
@@ -146,260 +144,225 @@ export default function BandForm() {
 
   const handleNext = () => {
     setErrorMessage("");
+
     if (step === 1 && (!formData.name || !formData.city)) {
-      setErrorMessage("Preencha o nome e a cidade");
+      setErrorMessage("Fill band name and city.");
       return;
     }
+
     if (step === 2 && formData.genre_ids.length === 0) {
-      setErrorMessage("Selecione pelo menos um gênero");
+      setErrorMessage("Select at least one genre.");
       return;
     }
-    setStep(step + 1);
+
+    setStep((s) => s + 1);
   };
 
   const handleBack = () => {
     setErrorMessage("");
-    setStep(step - 1);
+    setStep((s) => s - 1);
   };
 
-  const totalSteps = 3;
+  const input =
+    "w-full h-[52px] rounded-xl border border-black/10 bg-black/[0.03] px-4 text-[15px] outline-none focus:border-gray-400 transition";
+
+  const textarea =
+    "w-full rounded-xl border border-black/10 bg-black/[0.03] px-4 py-3 text-[15px] outline-none focus:border-gray-400 resize-none";
 
   return (
     <div className="w-full max-w-md">
-      <h2 className="text-3xl font-bold text-green-900 mb-6">BAND PROFILE</h2>
 
-      {/* Barra de Progresso */}
-      <div className="flex mb-8 gap-1">
-        {Array.from({ length: totalSteps }).map((_, i) => (
+      {/* HEADER */}
+
+      <div className="mb-8 text-center">
+        <p className="text-[11px] tracking-[0.3em] uppercase text-gray-400 font-semibold">
+          BandLink
+        </p>
+
+        <h1 className="text-[30px] font-semibold text-gray-900 mt-2">
+          Band profile
+        </h1>
+
+        <p className="text-[13px] text-gray-400 mt-1">
+          Step {step} of {totalSteps}
+        </p>
+      </div>
+
+      {/* PROGRESS */}
+
+      <div className="flex gap-1.5 mb-8">
+        {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className={`flex-1 h-2 ${i === 0 ? "rounded-l" : i === totalSteps - 1 ? "rounded-r" : ""} ${
-              step >= i + 1 ? "bg-green-700" : "bg-gray-300"
+            className={`flex-1 h-[3px] rounded-full ${
+              step >= i ? "bg-gray-900" : "bg-black/10"
             }`}
           />
         ))}
       </div>
 
       {errorMessage && (
-        <div className="mb-4 p-3 rounded-md bg-red-100 border border-red-400 text-red-800 text-sm font-medium">
-          ⚠️ {errorMessage}
-        </div>
+        <p className="text-red-400 text-sm mb-4">{errorMessage}</p>
       )}
 
-      {successMessage && (
-        <div className="mb-4 p-3 rounded-md bg-green-100 border border-green-400 text-green-800 text-sm font-medium">
-          ✅ {successMessage}
-        </div>
-      )}
+      <form onSubmit={handleUploadAndFinish} className="flex flex-col gap-4">
 
-      <form className="space-y-6" onSubmit={handleUploadAndFinish}>
-        {/* Step 1 */}
+        {/* STEP 1 */}
+
         {step === 1 && (
           <>
-            <div>
-              <label className="block text-sm font-semibold text-green-900 mb-2">
-                BAND NAME
-              </label>
-              <input
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="What is your band's name?"
-                className="w-full border rounded-md border-gray-400 bg-transparent px-4 py-3 focus:outline-none focus:border-green-800 transition"
-              />
-            </div>
+            <input
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Band name"
+              className={input}
+            />
 
-            <div>
-              <label className="block text-sm font-semibold text-green-900 mb-2">
-                CITY / LOCATION
-              </label>
-              <input
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                placeholder="Where are you based?"
-                className="w-full border rounded-md border-gray-400 bg-transparent px-4 py-3 focus:outline-none focus:border-green-800 transition"
-              />
-            </div>
+            <input
+              name="city"
+              value={formData.city}
+              onChange={handleChange}
+              placeholder="City / location"
+              className={input}
+            />
 
-            <div>
-              <label className="block text-sm font-semibold text-green-900 mb-2">
-                BIO
-              </label>
-              <textarea
-                name="bio"
-                value={formData.bio}
-                onChange={handleChange}
-                placeholder="Tell us about your band..."
-                rows={3}
-                className="w-full border rounded-md border-gray-400 bg-transparent px-4 py-3 focus:outline-none focus:border-green-800 transition resize-none"
-              />
-            </div>
+            <textarea
+              name="bio"
+              rows={3}
+              value={formData.bio}
+              onChange={handleChange}
+              placeholder="Tell us about your band"
+              className={textarea}
+            />
 
             <button
               type="button"
               onClick={handleNext}
-              className="w-full bg-green-700 text-white rounded-md px-12 py-3 hover:bg-green-800 transition"
+              className="w-full h-[52px] rounded-xl bg-gray-900 text-white font-semibold hover:bg-black"
             >
-              Próximo
+              Next
             </button>
           </>
         )}
 
-        {/* Step 2 */}
+        {/* STEP 2 */}
+
         {step === 2 && (
           <>
-            <div>
-              <label className="block text-sm font-semibold text-green-900 mb-3">
-                MUSICAL GENRES
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {genres.map((genre) => (
-                  <button
-                    key={genre.id}
-                    type="button"
-                    onClick={() => handleToggleGenre(genre.id)}
-                    className={`px-4 py-2 rounded-md text-sm font-semibold transition-all border ${
-                      formData.genre_ids.includes(genre.id)
-                        ? "bg-green-700 border-green-700 text-white"
-                        : "border-gray-400 text-green-900 hover:border-green-700"
-                    }`}
-                  >
-                    {genre.name}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {genres.map((genre) => (
+                <button
+                  key={genre.id}
+                  type="button"
+                  onClick={() => handleToggleGenre(genre.id)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                    formData.genre_ids.includes(genre.id)
+                      ? "bg-gray-900 text-white"
+                      : "bg-black/[0.05] text-gray-700 hover:bg-black/[0.1]"
+                  }`}
+                >
+                  {genre.name}
+                </button>
+              ))}
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-green-900 mb-2">
-                GENRE DESCRIPTION
-              </label>
-              <input
-                name="genre_description"
-                value={formData.genre_description}
-                onChange={handleChange}
-                placeholder="Describe your sound..."
-                className="w-full border rounded-md border-gray-400 bg-transparent px-4 py-3 focus:outline-none focus:border-green-800 transition"
-              />
-            </div>
+            <input
+              name="genre_description"
+              value={formData.genre_description}
+              onChange={handleChange}
+              placeholder="Describe your sound"
+              className={input}
+            />
 
-            <div className="flex justify-between">
+            <div className="flex gap-3 mt-2">
               <button
                 type="button"
                 onClick={handleBack}
-                className="text-green-900 underline"
+                className="h-[52px] px-6 rounded-xl border border-black/10 hover:bg-black/[0.03]"
               >
-                Voltar
+                Back
               </button>
+
               <button
                 type="button"
                 onClick={handleNext}
-                className="bg-green-700 text-white rounded-md px-12 py-3 hover:bg-green-800 transition"
+                className="flex-1 h-[52px] rounded-xl bg-gray-900 text-white hover:bg-black"
               >
-                Próximo
+                Next
               </button>
             </div>
           </>
         )}
 
-        {/* Step 3 — Foto */}
+        {/* STEP 3 */}
+
         {step === 3 && (
           <>
-            <div>
-              <label className="block text-sm font-semibold text-green-900 mb-3">
-                PROFILE PHOTO
-              </label>
+            {!image ? (
+              <label className="w-40 h-40 mx-auto rounded-full border-2 border-dashed border-black/10 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={onFileChange}
+                  className="hidden"
+                />
 
-              {!image ? (
-                <div className="relative w-40 h-40 mx-auto rounded-full border-2 border-dashed border-gray-400 flex flex-col items-center justify-center cursor-pointer hover:border-green-700 transition overflow-hidden bg-white/50">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={onFileChange}
-                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                  />
-                  <span className="text-3xl mb-1">📸</span>
-                  <span className="text-xs font-semibold text-gray-500 uppercase">
-                    Choose Photo
-                  </span>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="relative w-full h-56 bg-gray-200 rounded-md overflow-hidden border border-gray-400">
-                    <Cropper
-                      image={image}
-                      crop={crop}
-                      zoom={zoom}
-                      aspect={1}
-                      cropShape="round"
-                      onCropChange={setCrop}
-                      onCropComplete={onCropComplete}
-                      onZoomChange={setZoom}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-green-900 mb-1">
-                      Zoom
-                    </label>
-                    <input
-                      type="range"
-                      value={zoom}
-                      min={1}
-                      max={3}
-                      step={0.1}
-                      aria-label="Zoom"
-                      onChange={(e) => setZoom(Number(e.target.value))}
-                      className="w-full accent-green-700"
-                    />
-                  </div>
-                  <div className="flex justify-center">
-                    <button
-                      type="button"
-                      onClick={() => setImage(null)}
-                      className="text-sm text-green-900 underline"
-                    >
-                      Escolher outra foto
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Resumo */}
-            <div className="p-4 rounded-md border border-gray-300 bg-white/40">
-              <p className="text-sm font-bold text-green-900 mb-2 uppercase">
-                Resumo
-              </p>
-              <p className="text-sm text-green-900">
-                <span className="font-semibold">Nome: </span>
-                {formData.name}
-              </p>
-              <p className="text-sm text-green-900">
-                <span className="font-semibold">Cidade: </span>
-                {formData.city}
-              </p>
-              <div className="flex gap-2 mt-2">
-                <span className="text-xs bg-green-700 text-white px-2 py-1 rounded">
-                  {formData.genre_ids.length} Gêneros
+                <span className="text-3xl">📸</span>
+                <span className="text-xs text-gray-400 mt-1">
+                  Choose photo
                 </span>
-              </div>
-            </div>
+              </label>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative w-full h-56 rounded-xl overflow-hidden bg-gray-200">
+                  <Cropper
+                    image={image}
+                    crop={crop}
+                    zoom={zoom}
+                    aspect={1}
+                    cropShape="round"
+                    onCropChange={setCrop}
+                    onCropComplete={onCropComplete}
+                    onZoomChange={setZoom}
+                  />
+                </div>
 
-            <div className="flex justify-between">
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setImage(null)}
+                  className="text-sm text-gray-500 underline"
+                >
+                  Choose another photo
+                </button>
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-4">
               <button
                 type="button"
                 onClick={handleBack}
-                className="text-green-900 underline"
+                className="h-[52px] px-6 rounded-xl border border-black/10"
               >
-                Voltar
+                Back
               </button>
+
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-green-700 text-white rounded-md px-12 py-3 hover:bg-green-800 transition disabled:opacity-50"
+                className="flex-1 h-[52px] rounded-xl bg-gray-900 text-white hover:bg-black disabled:opacity-50"
               >
-                {loading ? "Salvando..." : "Cadastrar"}
+                {loading ? "Saving..." : "Finish"}
               </button>
             </div>
           </>
