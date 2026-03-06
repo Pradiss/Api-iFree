@@ -1,4 +1,4 @@
-const { Musician, Genre, Instrument, User } = require("../models");
+const { Musician, Genre, Instrument, User, MusicianSkill} = require("../models");
 
 exports.register = async (req, res) => {
   try {
@@ -71,8 +71,18 @@ exports.register = async (req, res) => {
       await musician.setInstruments(req.body.instrument_ids);
     }
 
+    if (Array.isArray(req.body.skills) && req.body.skills.length > 0) {
+      await MusicianSkill.bulkCreate(
+        req.body.skills.map(skill => ({
+          musician_id: musician.id,
+          skill
+        }))
+      );
+    }
+
+
     const musicianWithRelations = await Musician.findByPk(musician.id, {
-      include: ["genres", "instruments"]
+      include: ["genres", "instruments","skills"]
     });
 
     return res.status(201).json(musicianWithRelations);

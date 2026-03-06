@@ -77,12 +77,13 @@ export default function MusicianForm() {
     profile_image: "",
     genre_ids: [],
     instrument_ids: [],
+    skills:[],
   });
 
   useEffect(() => {
     if (!localStorage.getItem("token")) router.replace("/login");
 
-    Promise.all([api.get("/genre"), api.get("/instrument")]).then(([g, i]) => {
+    Promise.all([api.get("v1/genre"), api.get("v1/instrument")]).then(([g, i]) => {
       setGenres(g.data || []);
       setInstruments(i.data || []);
     });
@@ -148,6 +149,9 @@ export default function MusicianForm() {
     }
 
     if (step === 2) {
+      if(!form.skills.length){
+        return setError("Select at least one skill")
+      }
       if (!form.genre_ids.length || !form.instrument_ids.length) {
         return setError("Select at least one genre and instrument.");
       }
@@ -171,18 +175,20 @@ export default function MusicianForm() {
         const fd = new FormData();
         fd.append("image", blob, "profile.jpg");
 
-        const { data } = await api.post("/media/upload", fd);
+        const { data } = await api.post("v1/musician/upload", fd);
+      
 
         profile_image = data.url;
       }
 
-      await api.post("/musician", {
+      await api.post("v1/musician", {
         ...form,
         profile_image,
       });
-
+      localStorage.setItem("profileCompleted", "true");
+      
       setSuccess("Profile saved!");
-      setTimeout(() => router.push("/"), 2000);
+      setTimeout(() => router.push("/"), 1000);
     } catch (err) {
       setError(
         err.response?.data?.error ||
@@ -259,6 +265,26 @@ export default function MusicianForm() {
 
         {step === 2 && (
           <>
+           <div>
+              <p className="text-[10px] uppercase text-gray-400 mb-2">
+                I am a...
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { value: "instrumentalist", label: "🎸 Instrumentalist" },
+                  { value: "vocalist", label: "🎤 Vocalist" },
+                  { value: "dj", label: "🎧 DJ" },
+                ].map((s) => (
+                  <TagButton
+                    key={s.value}
+                    label={s.label}
+                    active={form.skills.includes(s.value)}
+                    onClick={() => toggle("skills", s.value)}
+                  />
+                ))}
+              </div>
+            </div>
+
             <div>
               <p className="text-[10px] uppercase text-gray-400 mb-2">
                 Instruments
@@ -332,7 +358,7 @@ export default function MusicianForm() {
                   className="absolute inset-0 opacity-0"
                 />
 
-                📸
+                
               </div>
             ) : (
               <div className="h-52 relative border rounded-xl overflow-hidden">

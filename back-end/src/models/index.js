@@ -1,4 +1,5 @@
 const connectionBank = require("../config/database");
+const MusicianSkill = require("./musicianSkill")(connectionBank);
 
 const User = require("./user")(connectionBank);
 const Musician = require("./musician")(connectionBank);
@@ -146,6 +147,9 @@ Media.belongsTo(User, {
   as: "user",
 });
 
+Musician.hasMany(MusicianSkill, { foreignKey: "musician_id", as: "skills" });
+MusicianSkill.belongsTo(Musician, { foreignKey: "musician_id", as: "musician" });
+
 
 module.exports = {
   connectionBank,
@@ -160,5 +164,6 @@ module.exports = {
   BandGenre,
   MusicianGenre,
   MusicianInstrument,
-  Message
+  Message,
+  MusicianSkill
 };

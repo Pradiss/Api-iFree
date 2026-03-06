@@ -23,7 +23,7 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      const { data } = await api.post("/auth/login", { email, password });
+      const { data } = await api.post("v1/auth/login", { email, password });
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.role);
@@ -34,12 +34,20 @@ export default function LoginForm() {
       } else {
         router.push("/complete-profile");
       }
-    } catch {
+
+    
+    } catch (err) {
+
+    if (err.response?.status === 404) {
+      setError("Account not found. Please create one.");
+    } else {
       setError("Wrong email or password.");
-    } finally {
-      setLoading(false);
     }
+
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <div className="w-full" style={{ fontFamily: "-apple-system, 'SF Pro Text', sans-serif" }}>
