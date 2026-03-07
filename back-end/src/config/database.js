@@ -1,3 +1,4 @@
+require("dotenv").config();
 const { Sequelize } = require("sequelize");
 
 const connectionBank = new Sequelize(process.env.DATABASE_URL, {
