@@ -42,7 +42,7 @@ export default function RegisterForm() {
     setLoading(true);
 
     try {
-      const { data } = await api.post("v1/auth/register", { email, password, name, role });
+      const { data } = await api.post("/v1/auth/register", { email, password, name, role });
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.role);

@@ -175,7 +175,7 @@ export default function MusicianForm() {
         const fd = new FormData();
         fd.append("image", blob, "profile.jpg");
 
-        const { data } = await api.post("v1/musician/upload", fd);
+        const { data } = await api.post("/v1/musician/upload", fd);
       
 
         profile_image = data.url;
