@@ -37,6 +37,8 @@ export default function LoginForm() {
 
     
     } catch (err) {
+      
+    
 
     if (err.response?.status === 404) {
       setError("Account not found. Please create one.");

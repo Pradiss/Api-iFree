@@ -38,6 +38,10 @@ export default function RegisterForm() {
       setError("Fill in all fields.");
       return;
     }
+    if (password.length < 6 || !/[A-Z]/.test(password)) {
+      setError("Password must be at least 6 characters and include one uppercase letter.");
+      return;
+    }
     setError("");
     setLoading(true);
 
@@ -49,6 +53,7 @@ export default function RegisterForm() {
 
       router.push("/complete-profile");
     } catch (err) {
+      
       setError(err.response?.data?.message || "Registration failed. Try again.");
     } finally {
       setLoading(false);

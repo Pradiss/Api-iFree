@@ -7,30 +7,60 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// salva na memória em vez de disco
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error("Invalid file type. Only images are allowed."));
+    }
+    cb(null, true);
+  },
+});
 
 exports.uploadMiddleware = upload.single("image");
 
 exports.uploadImage = async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: "No file sent" });
-  }
-
   try {
+    console.log("FILE RECEIVED:", req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+    } : null);
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file sent" });
+    }
+
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { folder: "bandlink/profiles", transformation: [{ width: 400, height: 400, crop: "fill" }] },
+        {
+          folder: "bandlink/profiles",
+          transformation: [{ width: 400, height: 400, crop: "fill" }],
+        },
         (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
+          if (error) {
+            console.error("Cloudinary error:", error);
+            reject(error);
+          } else {
+            resolve(result);
+          }
         }
       );
+
       stream.end(req.file.buffer);
     });
 
-    return res.status(200).json({ url: result.secure_url });
+    return res.status(200).json({
+      url: result.secure_url,
+      public_id: result.public_id,
+    });
   } catch (error) {
-    return res.status(500).json({ error: "Upload failed", details: error.message });
+    console.error("Upload failed:", error);
+    return res.status(500).json({
+      error: "Upload failed",
+      details: error.message,
+    });
   }
 };

@@ -1,39 +1,56 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { api } from "../../services/api";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Cropper from "react-easy-crop";
+import { api } from "../../services/api";
 
 const TOTAL_STEPS = 3;
 
-function FloatingInput({ label, name, value, onChange, type = "text", min }) {
-  const [focus, setFocus] = useState(false);
-  const active = focus || value;
+const SKILL_OPTIONS = [
+  { value: "instrumentalist", label: "🎸 Instrumentalist" },
+  { value: "vocalist", label: "🎤 Vocalist" },
+  { value: "dj", label: "🎧 DJ" },
+];
 
+const INITIAL_FORM = {
+  name_artistic: "",
+  city: "",
+  experience_years: "",
+  profile_image: "",
+  genre_ids: [],
+  instrument_ids: [],
+  skills: [],
+};
+
+function InputField({
+  label,
+  name,
+  value,
+  onChange,
+  type = "text",
+  min,
+  required = false,
+}) {
   return (
-    <div className="relative">
-      <input
-        name={name}
-        value={value}
-        type={type}
-        min={min}
-        required
-        onChange={onChange}
-        onFocus={() => setFocus(true)}
-        onBlur={() => setFocus(false)}
-        className={`w-full h-[52px] rounded-xl border outline-none pl-4 pr-4 text-[15px] bg-black/[0.03]
-        ${focus ? "border-gray-400" : "border-black/10"}
-        ${active ? "pt-5 pb-1" : ""}`}
-      />
-
+    <div className="flex flex-col gap-2">
       <label
-        className={`absolute left-4 transition-all
-        ${active ? "top-1 text-[10px] uppercase font-semibold" : "top-1/2 -translate-y-1/2"}
-        ${focus ? "text-gray-500" : "text-gray-400"}`}
+        htmlFor={name}
+        className="text-[12px] font-medium uppercase tracking-wide text-gray-500"
       >
         {label}
       </label>
+
+      <input
+        id={name}
+        name={name}
+        type={type}
+        min={min}
+        value={value}
+        required={required}
+        onChange={onChange}
+        className="h-[52px] w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 text-[15px] outline-none transition focus:border-gray-400 focus:bg-white"
+      />
     </div>
   );
 }
@@ -43,13 +60,70 @@ function TagButton({ label, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-lg text-[13px] border
-      ${active
-        ? "bg-gray-900 text-white border-gray-900"
-        : "border-black/10 text-gray-500 hover:border-gray-400 bg-black/[0.02]"}`}
+      className={`rounded-xl border px-3 py-2 text-[13px] font-medium transition ${
+        active
+          ? "border-gray-900 bg-gray-900 text-white"
+          : "border-black/10 bg-black/[0.02] text-gray-600 hover:border-gray-400 hover:bg-black/[0.04]"
+      }`}
     >
       {label}
     </button>
+  );
+}
+
+function ActionButton({
+  children,
+  type = "button",
+  variant = "primary",
+  onClick,
+  disabled = false,
+  className = "",
+}) {
+  const baseClass =
+    "h-[52px] rounded-xl px-5 font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
+
+  const variants = {
+    primary: "bg-gray-900 text-white hover:bg-black",
+    secondary: "border border-black/10 bg-white text-gray-700 hover:border-gray-300",
+  };
+
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`${baseClass} ${variants[variant]} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ProgressBar({ currentStep }) {
+  return (
+    <div className="mb-8 flex gap-1.5">
+      {Array.from({ length: TOTAL_STEPS }).map((_, index) => (
+        <div
+          key={index}
+          className={`h-[3px] flex-1 rounded-full transition ${
+            currentStep >= index + 1 ? "bg-gray-900" : "bg-black/10"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Message({ type = "error", children }) {
+  const styles = {
+    error: "border-red-200 bg-red-50 text-red-600",
+    success: "border-green-200 bg-green-50 text-green-700",
+  };
+
+  return (
+    <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${styles[type]}`}>
+      {children}
+    </div>
   );
 }
 
@@ -57,317 +131,401 @@ export default function MusicianForm() {
   const router = useRouter();
 
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState(INITIAL_FORM);
 
   const [genres, setGenres] = useState([]);
   const [instruments, setInstruments] = useState([]);
+  const [userName, setUserName] = useState("");
+
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [image, setImage] = useState(null);
-  const [zoom, setZoom] = useState(1);
+  const [imageSrc, setImageSrc] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-  const [form, setForm] = useState({
-    name_artistic: "",
-    city: "",
-    experience_years: 0,
-    profile_image: "",
-    genre_ids: [],
-    instrument_ids: [],
-    skills:[],
-  });
-
   useEffect(() => {
-    if (!localStorage.getItem("token")) router.replace("/login");
+    const token = localStorage.getItem("token");
 
-    Promise.all([api.get("v1/genre"), api.get("v1/instrument")]).then(([g, i]) => {
-      setGenres(g.data || []);
-      setInstruments(i.data || []);
-    });
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    loadInitialData();
+  }, [router]);
+
+  const loadInitialData = async () => {
+    try {
+      setLoadingOptions(true);
+      setError("");
+
+      const [genresResponse, instrumentsResponse, meResponse] = await Promise.all([
+        api.get("/v1/genre"),
+        api.get("/v1/instrument"),
+        api.get("/v1/auth/me"),
+      ]);
+
+      setGenres(genresResponse.data || []);
+      setInstruments(instrumentsResponse.data || []);
+      setUserName(meResponse.data?.name || "");
+    } catch (err) {
+      setError("Failed to load profile data.");
+    } finally {
+      setLoadingOptions(false);
+    }
+  };
+
+  const onCropComplete = useCallback((_, croppedPixels) => {
+    setCroppedAreaPixels(croppedPixels);
   }, []);
 
-  function handleChange(e) {
-    const { name, value } = e.target;
+  const isStepOneValid = useMemo(() => {
+    return form.name_artistic.trim() !== "" && form.city.trim() !== "";
+  }, [form.name_artistic, form.city]);
 
-    setForm({
-      ...form,
-      [name]: name === "experience_years" ? Number(value) : value,
+  const isStepTwoValid = useMemo(() => {
+    return form.skills.length > 0 && form.genre_ids.length > 0;
+  }, [form.skills, form.genre_ids]);
+
+  const updateFormField = (event) => {
+    const { name, value } = event.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const toggleArrayField = (field, value) => {
+    setForm((prev) => {
+      const currentValues = prev[field];
+      const isSelected = currentValues.includes(value);
+
+      return {
+        ...prev,
+        [field]: isSelected
+          ? currentValues.filter((item) => item !== value)
+          : [...currentValues, value],
+      };
     });
-  }
+  };
 
-  function toggle(field, id) {
-    const list = form[field];
-
-    setForm({
-      ...form,
-      [field]: list.includes(id)
-        ? list.filter((i) => i !== id)
-        : [...list, id],
-    });
-  }
-
-  const onCropComplete = useCallback((_, pixels) => {
-    setCroppedAreaPixels(pixels);
-  }, []);
-
-  function onFileChange(e) {
-    const file = e.target.files?.[0];
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file.");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
     const reader = new FileReader();
-    reader.onload = () => setImage(reader.result);
+    reader.onload = () => setImageSrc(reader.result);
     reader.readAsDataURL(file);
-  }
+  };
 
-  async function getCroppedBlob() {
+  const getStepValidationError = () => {
+    if (step === 1 && !isStepOneValid) {
+      return "Fill in your artistic name and city.";
+    }
+
+    if (step === 2) {
+      if (form.skills.length === 0) {
+        return "Select at least one skill.";
+      }
+
+      if (form.genre_ids.length === 0) {
+        return "Select at least one genre.";
+      }
+    }
+
+    return "";
+  };
+
+  const handleNextStep = () => {
+    const validationError = getStepValidationError();
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setError("");
+    setStep((prev) => Math.min(prev + 1, TOTAL_STEPS));
+  };
+
+  const handlePreviousStep = () => {
+    setError("");
+    setStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  const createCroppedImageBlob = async () => {
+    if (!imageSrc || !croppedAreaPixels) return null;
+
+    const image = new Image();
+    image.src = imageSrc;
+
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = reject;
+    });
+
     const canvas = document.createElement("canvas");
-    const img = new Image();
-    img.src = image;
+    const context = canvas.getContext("2d");
 
-    await new Promise((res) => (img.onload = res));
+    if (!context) {
+      throw new Error("Could not create canvas context.");
+    }
 
     const { x, y, width, height } = croppedAreaPixels;
 
     canvas.width = width;
     canvas.height = height;
 
-    const ctx = canvas.getContext("2d");
+    context.drawImage(image, x, y, width, height, 0, 0, width, height);
 
-    ctx.drawImage(img, x, y, width, height, 0, 0, width, height);
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("Failed to generate cropped image."));
+          return;
+        }
 
-    return new Promise((res) => canvas.toBlob(res, "image/jpeg"));
+        resolve(blob);
+      }, "image/jpeg");
+    });
+  };
+
+  const uploadProfileImage = async () => {
+  const blob = await createCroppedImageBlob();
+
+  if (!blob) {
+    return form.profile_image;
   }
 
-  function next() {
+  const formData = new FormData();
+  formData.append("image", blob, "profile.jpg");
+
+  const response = await api.post("/v1/musician/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+
+  return response.data?.url || "";
+};
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
-
-    if (step === 1 && (!form.name_artistic || !form.city)) {
-      return setError("Fill in your artistic name and city.");
-    }
-
-    if (step === 2) {
-      if(!form.skills.length){
-        return setError("Select at least one skill")
-      }
-      if (!form.genre_ids.length || !form.instrument_ids.length) {
-        return setError("Select at least one genre and instrument.");
-      }
-    }
-
-    setStep(step + 1);
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-
-    setLoading(true);
-    setError("");
+    setSuccess("");
 
     try {
-      let profile_image = form.profile_image;
+      setSubmitting(true);
 
-      if (image && croppedAreaPixels) {
-        const blob = await getCroppedBlob();
+      let profileImage = form.profile_image;
 
-        const fd = new FormData();
-        fd.append("image", blob, "profile.jpg");
-
-        const { data } = await api.post("/v1/musician/upload", fd);
-      
-
-        profile_image = data.url;
+      if (imageSrc && croppedAreaPixels) {
+        profileImage = await uploadProfileImage();
       }
 
-      await api.post("v1/musician", {
+      await api.post("/v1/musician", {
         ...form,
-        profile_image,
+        experience_years: Number(form.experience_years) || 0,
+        profile_image: profileImage,
       });
+
       localStorage.setItem("profileCompleted", "true");
-      
-      setSuccess("Profile saved!");
-      setTimeout(() => router.push("/"), 1000);
+      setSuccess("Profile saved successfully.");
+
+      setTimeout(() => {
+        router.push("/");
+      }, 1000);
     } catch (err) {
       setError(
-        err.response?.data?.error ||
-          err.response?.data?.message ||
-          "Error saving profile"
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Error saving profile."
       );
+    } finally {
+      setSubmitting(false);
     }
-
-    setLoading(false);
-  }
+  };
 
   return (
-    <div className="w-full">
-
-      {/* HEADER */}
-
-      <div className="text-center mb-8">
-        <p className="text-[11px] tracking-[0.3em] uppercase text-gray-400">
+    <div className="w-full max-w-2xl">
+      <header className="mb-8 text-center">
+        <p className="text-[11px] uppercase tracking-[0.3em] text-gray-400">
           BandLink
         </p>
 
-        <h1 className="text-[28px] font-semibold">
-          Musician profile
+       
+        <h1 className="text-[28px] font-semibold tracking-tight text-gray-900">
+         Registering  Musician  <span className="text-red-700">{userName}</span>
         </h1>
 
         <p className="text-[13px] text-gray-400">
           Step {step} of {TOTAL_STEPS}
         </p>
-      </div>
+      </header>
 
-      {/* PROGRESS */}
+      <ProgressBar currentStep={step} />
 
-      <div className="flex gap-1.5 mb-8">
-        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-          <div
-            key={i}
-            className={`flex-1 h-[3px] rounded-full ${
-              step >= i + 1 ? "bg-gray-900" : "bg-black/10"
-            }`}
-          />
-        ))}
-      </div>
+      {error && <Message type="error">{error}</Message>}
+      {success && <Message type="success">{success}</Message>}
 
-      {error && <p className="text-red-400 mb-4">{error}</p>}
-      {success && <p className="text-green-600 mb-4">{success}</p>}
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {step === 1 && (
           <>
-            <FloatingInput
+            <InputField
               label="Artistic name"
               name="name_artistic"
               value={form.name_artistic}
-              onChange={handleChange}
+              onChange={updateFormField}
+              required
             />
 
-            <FloatingInput
+            <InputField
               label="City"
               name="city"
               value={form.city}
-              onChange={handleChange}
+              onChange={updateFormField}
+              required
             />
 
-            <button
-              type="button"
-              onClick={next}
-              className="h-[52px] rounded-xl bg-gray-900 text-white font-semibold"
+            <ActionButton
+              onClick={handleNextStep}
+              disabled={!isStepOneValid}
+              className="w-full"
             >
               Next
-            </button>
+            </ActionButton>
           </>
         )}
 
         {step === 2 && (
           <>
-           <div>
-              <p className="text-[10px] uppercase text-gray-400 mb-2">
+            <section className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                 I am a...
               </p>
+
               <div className="flex flex-wrap gap-2">
-                {[
-                  { value: "instrumentalist", label: "🎸 Instrumentalist" },
-                  { value: "vocalist", label: "🎤 Vocalist" },
-                  { value: "dj", label: "🎧 DJ" },
-                ].map((s) => (
+                {SKILL_OPTIONS.map((skill) => (
                   <TagButton
-                    key={s.value}
-                    label={s.label}
-                    active={form.skills.includes(s.value)}
-                    onClick={() => toggle("skills", s.value)}
+                    key={skill.value}
+                    label={skill.label}
+                    active={form.skills.includes(skill.value)}
+                    onClick={() => toggleArrayField("skills", skill.value)}
                   />
                 ))}
               </div>
-            </div>
+            </section>
 
-            <div>
-              <p className="text-[10px] uppercase text-gray-400 mb-2">
-                Instruments
+            <section className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                Instruments (optional)
               </p>
 
               <div className="flex flex-wrap gap-2">
-                {instruments.map((i) => (
-                  <TagButton
-                    key={i.id}
-                    label={i.name}
-                    active={form.instrument_ids.includes(i.id)}
-                    onClick={() => toggle("instrument_ids", i.id)}
-                  />
-                ))}
+                {loadingOptions ? (
+                  <p className="text-sm text-gray-400">Loading instruments...</p>
+                ) : (
+                  instruments.map((instrument) => (
+                    <TagButton
+                      key={instrument.id}
+                      label={instrument.name}
+                      active={form.instrument_ids.includes(instrument.id)}
+                      onClick={() =>
+                        toggleArrayField("instrument_ids", instrument.id)
+                      }
+                    />
+                  ))
+                )}
               </div>
-            </div>
+            </section>
 
-            <div>
-              <p className="text-[10px] uppercase text-gray-400 mb-2">
+            <section className="space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                 Genres
               </p>
 
               <div className="flex flex-wrap gap-2">
-                {genres.map((g) => (
-                  <TagButton
-                    key={g.id}
-                    label={g.name}
-                    active={form.genre_ids.includes(g.id)}
-                    onClick={() => toggle("genre_ids", g.id)}
-                  />
-                ))}
+                {loadingOptions ? (
+                  <p className="text-sm text-gray-400">Loading genres...</p>
+                ) : (
+                  genres.map((genre) => (
+                    <TagButton
+                      key={genre.id}
+                      label={genre.name}
+                      active={form.genre_ids.includes(genre.id)}
+                      onClick={() => toggleArrayField("genre_ids", genre.id)}
+                    />
+                  ))
+                )}
               </div>
-            </div>
+            </section>
 
-            <FloatingInput
+            <InputField
               label="Years of experience"
               name="experience_years"
-              value={form.experience_years}
-              onChange={handleChange}
               type="number"
+              min={0}
+              value={form.experience_years}
+              onChange={updateFormField}
+              required={false}
             />
 
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep(step - 1)}
-                className="px-5 border rounded-xl"
+              <ActionButton
+                variant="secondary"
+                onClick={handlePreviousStep}
+                className="min-w-[120px]"
               >
                 Back
-              </button>
+              </ActionButton>
 
-              <button
-                type="button"
-                onClick={next}
-                className="flex-1 h-[52px] rounded-xl bg-gray-900 text-white"
+              <ActionButton
+                onClick={handleNextStep}
+                disabled={!isStepTwoValid}
+                className="flex-1"
               >
                 Next
-              </button>
+              </ActionButton>
             </div>
           </>
         )}
 
         {step === 3 && (
           <>
-            {!image ? (
-              <div className="relative w-36 h-36 mx-auto border-2 border-dashed rounded-full flex items-center justify-center">
+            {!imageSrc ? (
+              <label className="relative mx-auto flex h-40 w-40 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-black/10 bg-black/[0.02] text-center text-sm text-gray-500 transition hover:border-gray-400 hover:bg-black/[0.04]">
+                <span className="px-4">Click to upload profile image</span>
+
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={onFileChange}
+                  onChange={handleFileChange}
                   className="absolute inset-0 opacity-0"
                 />
-
-                
-              </div>
+              </label>
             ) : (
-              <div className="h-52 relative border rounded-xl overflow-hidden">
+              <div className="relative h-64 overflow-hidden rounded-2xl border border-black/10 bg-black/[0.02]">
                 <Cropper
-                  image={image}
+                  image={imageSrc}
                   crop={crop}
                   zoom={zoom}
                   aspect={1}
                   cropShape="round"
+                  showGrid={false}
                   onCropChange={setCrop}
                   onCropComplete={onCropComplete}
                   onZoomChange={setZoom}
@@ -375,16 +533,47 @@ export default function MusicianForm() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="h-[52px] rounded-xl bg-gray-900 text-white"
-            >
-              {loading ? "Saving..." : "Save profile"}
-            </button>
+            {imageSrc && (
+              <div className="space-y-2">
+                <label
+                  htmlFor="zoom"
+                  className="text-[12px] font-medium uppercase tracking-wide text-gray-500"
+                >
+                  Zoom
+                </label>
+
+                <input
+                  id="zoom"
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <ActionButton
+                variant="secondary"
+                onClick={handlePreviousStep}
+                className="min-w-[120px]"
+              >
+                Back
+              </ActionButton>
+
+              <ActionButton
+                type="submit"
+                disabled={submitting}
+                className="flex-1"
+              >
+                {submitting ? "Saving..." : "Save profile"}
+              </ActionButton>
+            </div>
           </>
         )}
-
       </form>
     </div>
   );

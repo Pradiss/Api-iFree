@@ -82,9 +82,26 @@ exports.register = async (req, res) => {
 
 
     const musicianWithRelations = await Musician.findByPk(musician.id, {
-      include: ["genres", "instruments","skills"]
+       include: [
+        {
+          model: Genre,
+          as: "genres",
+          attributes: ["id", "name"],
+          through: { attributes: [] }
+        },
+        {
+          model: Instrument,
+          as: "instruments",
+          attributes: ["id", "name"],
+          through: { attributes: [] }
+        },
+        {
+          model: MusicianSkill,
+          as: "skills",
+          attributes: ["id", "skill"]
+        }
+      ]
     });
-
     return res.status(201).json(musicianWithRelations);
   } catch (error) {
     console.error("Error:", error); 
