@@ -21,46 +21,81 @@ const upload = multer({
 
 exports.uploadMiddleware = upload.single("image");
 
+// exports.uploadImage = async (req, res) => {
+//   try {
+//     console.log("FILE RECEIVED:", req.file ? {
+//       originalname: req.file.originalname,
+//       mimetype: req.file.mimetype,
+//       size: req.file.size,
+//     } : null);
+
+//     if (!req.file) {
+//       return res.status(400).json({ error: "No file sent" });
+//     }
+
+//     const result = await new Promise((resolve, reject) => {
+//       const stream = cloudinary.uploader.upload_stream(
+//         {
+//           folder: "bandlink/profiles",
+//           transformation: [{ width: 400, height: 400, crop: "fill" }],
+//         },
+//         (error, result) => {
+//           if (error) {
+//             console.error("Cloudinary error:", error);
+//             reject(error);
+//           } else {
+//             resolve(result);
+//           }
+//         }
+//       );
+
+//       stream.end(req.file.buffer);
+//     });
+
+//     return res.status(200).json({
+//       url: result.secure_url,
+//       public_id: result.public_id,
+//     });
+//   } catch (error) {
+//     console.error("Upload failed:", error);
+//     return res.status(500).json({
+//       error: "Upload failed",
+//       details: error.message,
+//     });
+//   }
+// };
+
 exports.uploadImage = async (req, res) => {
   try {
-    console.log("FILE RECEIVED:", req.file ? {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-    } : null);
-
     if (!req.file) {
       return res.status(400).json({ error: "No file sent" });
     }
 
+    const folder = `bandlink/${req.user.role}/profiles`;
+
     const result = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
-          folder: "bandlink/profiles",
-          transformation: [{ width: 400, height: 400, crop: "fill" }],
+          folder,
+          transformation: [
+            { width: 400, height: 400, crop: "fill", gravity: "face" },
+            { quality: "auto", fetch_format: "auto" },
+          ],
         },
         (error, result) => {
-          if (error) {
-            console.error("Cloudinary error:", error);
-            reject(error);
-          } else {
-            resolve(result);
-          }
-        }
+          if (error) reject(error);
+          else resolve(result);
+        },
       );
 
       stream.end(req.file.buffer);
     });
 
-    return res.status(200).json({
+    return res.json({
       url: result.secure_url,
-      public_id: result.public_id,
+      role: req.user.role,
     });
   } catch (error) {
-    console.error("Upload failed:", error);
-    return res.status(500).json({
-      error: "Upload failed",
-      details: error.message,
-    });
+    return res.status(500).json({ error: "Upload failed" });
   }
 };

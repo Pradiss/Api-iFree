@@ -17,7 +17,7 @@ export default function LogoutButton() {
       onClick={handleLogout}
       className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
     >
-      Logout
+      Sair da conta
     </button>
   );
 }

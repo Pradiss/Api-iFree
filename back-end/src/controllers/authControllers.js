@@ -76,17 +76,39 @@ exports.login = async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" })
     }
 
+    // 🔎 verificar se perfil existe
+    let profileCompleted = false
+
+    if (user.role === "musician") {
+      const musician = await Musician.findOne({ where: { user_id: user.id } })
+      profileCompleted = !!musician
+    }
+
+    if (user.role === "band") {
+      const band = await Band.findOne({ where: { user_id: user.id } })
+      profileCompleted = !!band
+    }
+
+    if (user.role === "establishment") {
+      const establishment = await Establishment.findOne({ where: { user_id: user.id } })
+      profileCompleted = !!establishment
+    }
+
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     )
 
-    return res.json({ token, role: user.role, profileCompleted: user.profileCompleted })
+    return res.json({
+      token,
+      role: user.role,
+      profileCompleted
+    })
 
   } catch (error) {
     console.error(error)
-    return res.status(500).json({ error: "Error login " })
+    return res.status(500).json({ error: "Error login" })
   }
 }
 

@@ -1,6 +1,5 @@
 const { DataTypes } = require("sequelize");
 
-
 module.exports = (connectionBank) => {
   const Establishment = connectionBank.define(
     "Establishment",
@@ -25,22 +24,22 @@ module.exports = (connectionBank) => {
         allowNull: false,
         validate: {
           notEmpty: {
-            msg: "Name is required" 
+            msg: "Name is required",
           },
           len: {
             args: [2, 100],
-            msg: "Name must be between 2 and 100 characters"
-          }
-        }
+            msg: "Name must be between 2 and 100 characters",
+          },
+        },
       },
       city: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
           notEmpty: {
-            msg: "City is required" 
-          }
-        }
+            msg: "City is required",
+          },
+        },
       },
       description: {
         type: DataTypes.TEXT,
@@ -51,18 +50,22 @@ module.exports = (connectionBank) => {
         allowNull: true,
         validate: {
           is: {
-            args: /^[0-9+\-\s()]+$/, 
-            msg: "Invalid phone format"
-          }
-        }
-      }
+            args: /^[0-9+\-\s()]+$/,
+            msg: "Invalid phone format",
+          },
+        },
+      },
+      profile_image: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
     },
     {
       tableName: "establishments",
       timestamps: true,
       underscored: true,
-    }
+    },
   );
-  
+
   return Establishment;
 };

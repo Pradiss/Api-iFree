@@ -16,6 +16,7 @@ exports.register = async (req, res) => {
         error: "Band must have at least one genre"
       });
     }
+    
 
     const band = await Band.create({
       user_id: req.user.id, 
@@ -42,7 +43,7 @@ exports.register = async (req, res) => {
     console.error(error);
 
     return res.status(500).json({
-      error: "Error creating musician",
+      error: "Error creating band",
       details: error.message,
     });
   }

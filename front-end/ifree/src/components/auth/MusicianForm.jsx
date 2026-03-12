@@ -8,8 +8,8 @@ import { api } from "../../services/api";
 const TOTAL_STEPS = 3;
 
 const SKILL_OPTIONS = [
-  { value: "instrumentalist", label: "🎸 Instrumentalist" },
-  { value: "vocalist", label: "🎤 Vocalist" },
+  { value: "instrumentalist", label: "🎸 Instrumentista" },
+  { value: "vocalist", label: "🎤 Vocalista" },
   { value: "dj", label: "🎧 DJ" },
 ];
 
@@ -23,34 +23,43 @@ const INITIAL_FORM = {
   skills: [],
 };
 
-function InputField({
-  label,
-  name,
-  value,
-  onChange,
-  type = "text",
-  min,
-  required = false,
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <label
-        htmlFor={name}
-        className="text-[12px] font-medium uppercase tracking-wide text-gray-500"
-      >
-        {label}
-      </label>
+function FloatingInput({ label, name, value, onChange, type = "text", min }) {
+  const [focused, setFocused] = useState(false);
+  const active = focused || String(value).length > 0;
 
+  return (
+    <div className="relative">
       <input
         id={name}
         name={name}
         type={type}
         min={min}
         value={value}
-        required={required}
         onChange={onChange}
-        className="h-[52px] w-full rounded-xl border border-black/10 bg-black/[0.02] px-4 text-[15px] outline-none transition focus:border-gray-400 focus:bg-white"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className={`
+          w-full h-[52px] rounded-xl border outline-none
+          pl-4 pr-4 text-[15px] text-gray-900
+          bg-black/[0.02] transition-all duration-200
+          ${focused ? "border-gray-400 bg-white" : "border-black/10"}
+          ${active ? "pt-5 pb-1" : ""}
+        `}
       />
+      <label
+        htmlFor={name}
+        className={`
+          absolute left-4 pointer-events-none transition-all duration-200
+          ${
+            active
+              ? "top-1.5 text-[10px] font-semibold tracking-widest uppercase"
+              : "top-1/2 -translate-y-1/2 text-[14px] font-normal"
+          }
+          ${focused ? "text-gray-500" : "text-gray-400"}
+        `}
+      >
+        {label}
+      </label>
     </div>
   );
 }
@@ -84,7 +93,8 @@ function ActionButton({
 
   const variants = {
     primary: "bg-gray-900 text-white hover:bg-black",
-    secondary: "border border-black/10 bg-white text-gray-700 hover:border-gray-300",
+    secondary:
+      "border border-black/10 bg-white text-gray-700 hover:border-gray-300",
   };
 
   return (
@@ -127,6 +137,14 @@ function Message({ type = "error", children }) {
   );
 }
 
+function SectionLabel({ children }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+      {children}
+    </p>
+  );
+}
+
 export default function MusicianForm() {
   const router = useRouter();
 
@@ -164,17 +182,18 @@ export default function MusicianForm() {
       setLoadingOptions(true);
       setError("");
 
-      const [genresResponse, instrumentsResponse, meResponse] = await Promise.all([
-        api.get("/v1/genre"),
-        api.get("/v1/instrument"),
-        api.get("/v1/auth/me"),
-      ]);
+      const [genresResponse, instrumentsResponse, meResponse] =
+        await Promise.all([
+          api.get("/v1/genre"),
+          api.get("/v1/instrument"),
+          api.get("/v1/auth/me"),
+        ]);
 
       setGenres(genresResponse.data || []);
       setInstruments(instrumentsResponse.data || []);
       setUserName(meResponse.data?.name || "");
     } catch (err) {
-      setError("Failed to load profile data.");
+      setError("Falha ao carregar os dados do perfil.");
     } finally {
       setLoadingOptions(false);
     }
@@ -194,11 +213,7 @@ export default function MusicianForm() {
 
   const updateFormField = (event) => {
     const { name, value } = event.target;
-
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const toggleArrayField = (field, value) => {
@@ -220,7 +235,7 @@ export default function MusicianForm() {
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      setError("Please select a valid image file.");
+      setError("Selecione um arquivo de imagem válido.");
       return;
     }
 
@@ -234,17 +249,13 @@ export default function MusicianForm() {
 
   const getStepValidationError = () => {
     if (step === 1 && !isStepOneValid) {
-      return "Fill in your artistic name and city.";
+      return "Preencha seu nome artístico e cidade.";
     }
 
     if (step === 2) {
-      if (form.skills.length === 0) {
-        return "Select at least one skill.";
-      }
-
-      if (form.genre_ids.length === 0) {
-        return "Select at least one genre.";
-      }
+      if (form.skills.length === 0)
+        return "Selecione pelo menos uma habilidade.";
+      if (form.genre_ids.length === 0) return "Selecione pelo menos um gênero.";
     }
 
     return "";
@@ -281,9 +292,8 @@ export default function MusicianForm() {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
 
-    if (!context) {
-      throw new Error("Could not create canvas context.");
-    }
+    if (!context)
+      throw new Error("Não foi possível criar o contexto do canvas.");
 
     const { x, y, width, height } = croppedAreaPixels;
 
@@ -295,33 +305,28 @@ export default function MusicianForm() {
     return new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
         if (!blob) {
-          reject(new Error("Failed to generate cropped image."));
+          reject(new Error("Falha ao gerar a imagem recortada."));
           return;
         }
-
         resolve(blob);
       }, "image/jpeg");
     });
   };
 
   const uploadProfileImage = async () => {
-  const blob = await createCroppedImageBlob();
+    const blob = await createCroppedImageBlob();
 
-  if (!blob) {
-    return form.profile_image;
-  }
+    if (!blob) return form.profile_image;
 
-  const formData = new FormData();
-  formData.append("image", blob, "profile.jpg");
+    const formData = new FormData();
+    formData.append("image", blob, "profile.jpg");
 
-  const response = await api.post("/v1/musician/upload", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
+    const response = await api.post("/v1/musician/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
 
-  return response.data?.url || "";
-};
+    return response.data?.url || "";
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -344,16 +349,14 @@ export default function MusicianForm() {
       });
 
       localStorage.setItem("profileCompleted", "true");
-      setSuccess("Profile saved successfully.");
+      setSuccess("Perfil salvo com sucesso.");
 
-      setTimeout(() => {
-        router.push("/");
-      }, 1000);
+      setTimeout(() => router.push("/"), 1000);
     } catch (err) {
       setError(
         err?.response?.data?.error ||
           err?.response?.data?.message ||
-          "Error saving profile."
+          "Erro ao salvar o perfil.",
       );
     } finally {
       setSubmitting(false);
@@ -367,13 +370,12 @@ export default function MusicianForm() {
           BandLink
         </p>
 
-       
         <h1 className="text-[28px] font-semibold tracking-tight text-gray-900">
-         Registering  Musician  <span className="text-red-700">{userName}</span>
+          Cadastrando Músico <br></br><span className="text-red-700">{userName}</span>
         </h1>
 
         <p className="text-[13px] text-gray-400">
-          Step {step} of {TOTAL_STEPS}
+          Etapa {step} de {TOTAL_STEPS}
         </p>
       </header>
 
@@ -382,31 +384,29 @@ export default function MusicianForm() {
       {error && <Message type="error">{error}</Message>}
       {success && <Message type="success">{success}</Message>}
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {step === 1 && (
           <>
-            <InputField
-              label="Artistic name"
+            <FloatingInput
+              label="Nome artístico"
               name="name_artistic"
               value={form.name_artistic}
               onChange={updateFormField}
-              required
             />
 
-            <InputField
-              label="City"
+            <FloatingInput
+              label="Cidade"
               name="city"
               value={form.city}
               onChange={updateFormField}
-              required
             />
 
             <ActionButton
               onClick={handleNextStep}
               disabled={!isStepOneValid}
-              className="w-full"
+              className="w-full mt-1"
             >
-              Next
+              Próximo
             </ActionButton>
           </>
         )}
@@ -414,9 +414,7 @@ export default function MusicianForm() {
         {step === 2 && (
           <>
             <section className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                I am a...
-              </p>
+              <SectionLabel>Eu sou...</SectionLabel>
 
               <div className="flex flex-wrap gap-2">
                 {SKILL_OPTIONS.map((skill) => (
@@ -431,13 +429,13 @@ export default function MusicianForm() {
             </section>
 
             <section className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                Instruments (optional)
-              </p>
+              <SectionLabel>Instrumentos (opcional)</SectionLabel>
 
               <div className="flex flex-wrap gap-2">
                 {loadingOptions ? (
-                  <p className="text-sm text-gray-400">Loading instruments...</p>
+                  <p className="text-sm text-gray-400">
+                    Carregando instrumentos...
+                  </p>
                 ) : (
                   instruments.map((instrument) => (
                     <TagButton
@@ -454,13 +452,11 @@ export default function MusicianForm() {
             </section>
 
             <section className="space-y-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                Genres
-              </p>
+              <SectionLabel>Gêneros</SectionLabel>
 
               <div className="flex flex-wrap gap-2">
                 {loadingOptions ? (
-                  <p className="text-sm text-gray-400">Loading genres...</p>
+                  <p className="text-sm text-gray-400">Carregando gêneros...</p>
                 ) : (
                   genres.map((genre) => (
                     <TagButton
@@ -474,23 +470,22 @@ export default function MusicianForm() {
               </div>
             </section>
 
-            <InputField
-              label="Years of experience"
+            <FloatingInput
+              label="Anos de experiência"
               name="experience_years"
               type="number"
               min={0}
               value={form.experience_years}
               onChange={updateFormField}
-              required={false}
             />
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-1">
               <ActionButton
                 variant="secondary"
                 onClick={handlePreviousStep}
                 className="min-w-[120px]"
               >
-                Back
+                Voltar
               </ActionButton>
 
               <ActionButton
@@ -498,7 +493,7 @@ export default function MusicianForm() {
                 disabled={!isStepTwoValid}
                 className="flex-1"
               >
-                Next
+                Próximo
               </ActionButton>
             </div>
           </>
@@ -508,8 +503,7 @@ export default function MusicianForm() {
           <>
             {!imageSrc ? (
               <label className="relative mx-auto flex h-40 w-40 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-black/10 bg-black/[0.02] text-center text-sm text-gray-500 transition hover:border-gray-400 hover:bg-black/[0.04]">
-                <span className="px-4">Click to upload profile image</span>
-
+                <span className="px-4">Clique para enviar foto de perfil</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -518,32 +512,55 @@ export default function MusicianForm() {
                 />
               </label>
             ) : (
-              <div className="relative h-64 overflow-hidden rounded-2xl border border-black/10 bg-black/[0.02]">
-                <Cropper
-                  image={imageSrc}
-                  crop={crop}
-                  zoom={zoom}
-                  aspect={1}
-                  cropShape="round"
-                  showGrid={false}
-                  onCropChange={setCrop}
-                  onCropComplete={onCropComplete}
-                  onZoomChange={setZoom}
-                />
-              </div>
+              <>
+                <div className="relative h-64 overflow-hidden rounded-2xl border border-black/10 bg-black/[0.02]">
+                  <Cropper
+                    image={imageSrc}
+                    crop={crop}
+                    zoom={zoom}
+                    aspect={1}
+                    cropShape="round"
+                    showGrid={false}
+                    onCropChange={setCrop}
+                    onCropComplete={onCropComplete}
+                    onZoomChange={setZoom}
+                  />
+                </div>
+
+                {/* Botão trocar foto */}
+                <label className="mx-auto flex cursor-pointer items-center gap-1.5 text-[13px] font-medium text-gray-400 hover:text-gray-600 transition-colors">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  Trocar foto
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+              </>
             )}
 
             {imageSrc && (
               <div className="space-y-2">
-                <label
-                  htmlFor="zoom"
-                  className="text-[12px] font-medium uppercase tracking-wide text-gray-500"
-                >
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                   Zoom
-                </label>
+                </p>
 
                 <input
-                  id="zoom"
                   type="range"
                   min={1}
                   max={3}
@@ -555,13 +572,13 @@ export default function MusicianForm() {
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-1">
               <ActionButton
                 variant="secondary"
                 onClick={handlePreviousStep}
                 className="min-w-[120px]"
               >
-                Back
+                Voltar
               </ActionButton>
 
               <ActionButton
@@ -569,7 +586,7 @@ export default function MusicianForm() {
                 disabled={submitting}
                 className="flex-1"
               >
-                {submitting ? "Saving..." : "Save profile"}
+                {submitting ? "Salvando..." : "Salvar perfil"}
               </ActionButton>
             </div>
           </>

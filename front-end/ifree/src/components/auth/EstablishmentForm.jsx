@@ -1,295 +1,466 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { api } from "../../services/api";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Cropper from "react-easy-crop";
+import { api } from "../../services/api";
+
+const TOTAL_STEPS = 3;
+
+const INITIAL_FORM = {
+  name: "",
+  city: "",
+  description: "",
+  contact_phone: "",
+  profile_image: "",
+};
+
+
+function FloatingInput({ label, name, value, onChange, type = "text" }) {
+  const [focused, setFocused] = useState(false);
+  const active = focused || String(value).length > 0;
+
+  return (
+    <div className="relative">
+      <input
+        id={name}
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className={`
+          w-full h-[52px] rounded-xl border outline-none
+          pl-4 pr-4 text-[15px] text-gray-900
+          bg-black/[0.02] transition-all duration-200
+          ${focused ? "border-gray-400 bg-white" : "border-black/10"}
+          ${active ? "pt-5 pb-1" : ""}
+        `}
+      />
+      <label
+        htmlFor={name}
+        className={`
+          absolute left-4 pointer-events-none transition-all duration-200
+          ${active
+            ? "top-1.5 text-[10px] font-semibold tracking-widest uppercase"
+            : "top-1/2 -translate-y-1/2 text-[14px] font-normal"
+          }
+          ${focused ? "text-gray-500" : "text-gray-400"}
+        `}
+      >
+        {label}
+      </label>
+    </div>
+  );
+}
+
+
+function FloatingTextarea({ label, name, value, onChange, rows = 3 }) {
+  const [focused, setFocused] = useState(false);
+  const active = focused || String(value).length > 0;
+
+  return (
+    <div className="relative">
+      <textarea
+        id={name}
+        name={name}
+        rows={rows}
+        value={value}
+        onChange={onChange}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className={`
+          w-full resize-none rounded-xl border outline-none
+          pl-4 pr-4 pb-3 text-[15px] text-gray-900
+          bg-black/[0.02] transition-all duration-200
+          ${focused ? "border-gray-400 bg-white" : "border-black/10"}
+          ${active ? "pt-6" : "pt-3"}
+        `}
+      />
+      <label
+        htmlFor={name}
+        className={`
+          absolute left-4 pointer-events-none transition-all duration-200
+          ${active
+            ? "top-1.5 text-[10px] font-semibold tracking-widest uppercase"
+            : "top-3 text-[14px] font-normal"
+          }
+          ${focused ? "text-gray-500" : "text-gray-400"}
+        `}
+      >
+        {label}
+      </label>
+    </div>
+  );
+}
+
+function ActionButton({
+  children,
+  type = "button",
+  variant = "primary",
+  onClick,
+  disabled = false,
+  className = "",
+}) {
+  const baseClass =
+    "h-[52px] rounded-xl px-5 font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
+
+  const variants = {
+    primary: "bg-gray-900 text-white hover:bg-black",
+    secondary:
+      "border border-black/10 bg-white text-gray-700 hover:border-gray-300",
+  };
+
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`${baseClass} ${variants[variant]} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ProgressBar({ currentStep }) {
+  return (
+    <div className="mb-8 flex gap-1.5">
+      {Array.from({ length: TOTAL_STEPS }).map((_, index) => (
+        <div
+          key={index}
+          className={`h-[3px] flex-1 rounded-full transition ${
+            currentStep >= index + 1 ? "bg-gray-900" : "bg-black/10"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Message({ type = "error", children }) {
+  const styles = {
+    error: "border-red-200 bg-red-50 text-red-600",
+    success: "border-green-200 bg-green-50 text-green-700",
+  };
+
+  return (
+    <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${styles[type]}`}>
+      {children}
+    </div>
+  );
+}
 
 export default function EstablishmentForm() {
   const router = useRouter();
 
   const [step, setStep] = useState(1);
-  const totalSteps = 3;
+  const [form, setForm] = useState(INITIAL_FORM);
 
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [userName, setUserName] = useState("");
 
-  const [formData, setFormData] = useState({
-    name: "",
-    city: "",
-    description: "",
-    contact_phone: "",
-    profile_image: "",
-  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const [image, setImage] = useState(null);
+  const [imageSrc, setImageSrc] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
 
-  const input =
-    "w-full h-[52px] rounded-xl border border-black/10 bg-black/[0.03] px-4 text-[15px] outline-none focus:border-gray-400 transition";
+  useEffect(() => {
+    const token = localStorage.getItem("token");
 
-  const textarea =
-    "w-full rounded-xl border border-black/10 bg-black/[0.03] px-4 py-3 text-[15px] outline-none focus:border-gray-400 resize-none";
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+    loadInitialData();
+  }, [router]);
 
-  const onCropComplete = useCallback((_, croppedAreaPixels) => {
-    setCroppedAreaPixels(croppedAreaPixels);
-  }, []);
-
-  const onFileChange = (e) => {
-    if (e.target.files?.length > 0) {
-      const reader = new FileReader();
-      reader.addEventListener("load", () => setImage(reader.result));
-      reader.readAsDataURL(e.target.files[0]);
+  const loadInitialData = async () => {
+    try {
+      const meResponse = await api.get("/v1/auth/me");
+      setUserName(meResponse.data?.name || "");
+    } catch (err) {
+      setError("Falha ao carregar os dados do perfil.");
     }
   };
 
-  const createCroppedImage = async () => {
+  const onCropComplete = useCallback((_, croppedPixels) => {
+    setCroppedAreaPixels(croppedPixels);
+  }, []);
+
+  const isStepOneValid = useMemo(() => {
+    return form.name.trim() !== "" && form.city.trim() !== "";
+  }, [form.name, form.city]);
+
+  const isStepTwoValid = useMemo(() => {
+    return form.contact_phone.trim() !== "";
+  }, [form.contact_phone]);
+
+  const updateFormField = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setError("Selecione um arquivo de imagem válido.");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    const reader = new FileReader();
+    reader.onload = () => setImageSrc(reader.result);
+    reader.readAsDataURL(file);
+  };
+
+  const getStepValidationError = () => {
+    if (step === 1 && !isStepOneValid) {
+      return "Preencha o nome do estabelecimento e a cidade.";
+    }
+
+    if (step === 2 && !isStepTwoValid) {
+      return "Informe um telefone de contato.";
+    }
+
+    return "";
+  };
+
+  const handleNextStep = () => {
+    const validationError = getStepValidationError();
+
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setError("");
+    setStep((prev) => Math.min(prev + 1, TOTAL_STEPS));
+  };
+
+  const handlePreviousStep = () => {
+    setError("");
+    setStep((prev) => Math.max(prev - 1, 1));
+  };
+
+  const createCroppedImageBlob = async () => {
+    if (!imageSrc || !croppedAreaPixels) return null;
+
+    const image = new Image();
+    image.src = imageSrc;
+
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = reject;
+    });
+
     const canvas = document.createElement("canvas");
-    const img = new Image();
+    const context = canvas.getContext("2d");
 
-    img.src = image;
-    await new Promise((resolve) => (img.onload = resolve));
+    if (!context) {
+      throw new Error("Não foi possível criar o contexto do canvas.");
+    }
 
-    const ctx = canvas.getContext("2d");
+    const { x, y, width, height } = croppedAreaPixels;
 
-    canvas.width = croppedAreaPixels.width;
-    canvas.height = croppedAreaPixels.height;
+    canvas.width = width;
+    canvas.height = height;
 
-    ctx.drawImage(
-      img,
-      croppedAreaPixels.x,
-      croppedAreaPixels.y,
-      croppedAreaPixels.width,
-      croppedAreaPixels.height,
-      0,
-      0,
-      croppedAreaPixels.width,
-      croppedAreaPixels.height
-    );
+    context.drawImage(image, x, y, width, height, 0, 0, width, height);
 
-    return new Promise((resolve) => {
-      canvas.toBlob((blob) => resolve(blob), "image/jpeg");
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("Falha ao gerar a imagem recortada."));
+          return;
+        }
+        resolve(blob);
+      }, "image/jpeg");
     });
   };
 
-  const handleUploadAndFinish = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMessage("");
+  const uploadProfileImage = async () => {
+    const blob = await createCroppedImageBlob();
 
-    const token = localStorage.getItem("token");
+    if (!blob) return form.profile_image;
+
+    const formData = new FormData();
+    formData.append("image", blob, "profile.jpg");
+
+    const response = await api.post("/v1/establishment/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return response.data?.url || "";
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
 
     try {
-      let finalImageUrl = formData.profile_image;
+      setSubmitting(true);
 
-      if (image && croppedAreaPixels) {
-        const croppedBlob = await createCroppedImage();
+      let profileImage = form.profile_image;
 
-        const uploadData = new FormData();
-        uploadData.append("image", croppedBlob, "profile.jpg");
-
-        const uploadRes = await api.post("/media/upload", uploadData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        finalImageUrl = uploadRes.data.url;
+      if (imageSrc && croppedAreaPixels) {
+        profileImage = await uploadProfileImage();
       }
 
-      await api.post(
-        "/establishment",
-        { ...formData, profile_image: finalImageUrl },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.post("/v1/establishment", {
+        ...form,
+        profile_image: profileImage,
+      });
 
-      setSuccessMessage("Perfil criado com sucesso! Redirecionando...");
-      localStorage.setItem("profileCompleted", true);
+      localStorage.setItem("profileCompleted", "true");
+      setSuccess("Perfil do estabelecimento salvo com sucesso.");
 
-      setTimeout(() => router.push("/"), 1500);
+      setTimeout(() => router.push("/"), 1000);
     } catch (err) {
-      setErrorMessage(
-        err.response?.data?.message || "Erro ao salvar perfil"
+      setError(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Erro ao salvar o perfil do estabelecimento."
       );
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
-  };
-
-  const handleNext = () => {
-    setErrorMessage("");
-
-    if (step === 1 && (!formData.name || !formData.city)) {
-      setErrorMessage("Fill establishment name and city.");
-      return;
-    }
-
-    if (step === 2 && !formData.contact_phone) {
-      setErrorMessage("Enter contact phone.");
-      return;
-    }
-
-    setStep((s) => s + 1);
-  };
-
-  const handleBack = () => {
-    setErrorMessage("");
-    setStep((s) => s - 1);
   };
 
   return (
-    <div className="w-full max-w-md">
-
-      {/* HEADER */}
-
-      <div className="mb-8 text-center">
-        <p className="text-[11px] tracking-[0.3em] uppercase text-gray-400 font-semibold">
+    <div className="w-full max-w-2xl">
+      <header className="mb-8 text-center">
+        <p className="text-[11px] uppercase tracking-[0.3em] text-gray-400">
           BandLink
         </p>
 
-        <h1 className="text-[30px] font-semibold text-gray-900 mt-2">
-          Establishment profile
+        <h1 className="text-[28px] font-semibold tracking-tight text-gray-900">
+          Cadastrando Estabelecimento{" "}<br></br>
+          <span className="text-red-700">{userName}</span>
         </h1>
 
-        <p className="text-[13px] text-gray-400 mt-1">
-          Step {step} of {totalSteps}
+        <p className="text-[13px] text-gray-400">
+          Etapa {step} de {TOTAL_STEPS}
         </p>
-      </div>
+      </header>
 
-      {/* PROGRESS BAR */}
+      <ProgressBar currentStep={step} />
 
-      <div className="flex gap-1.5 mb-8">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className={`flex-1 h-[3px] rounded-full ${
-              step >= i ? "bg-gray-900" : "bg-black/10"
-            }`}
-          />
-        ))}
-      </div>
+      {error && <Message type="error">{error}</Message>}
+      {success && <Message type="success">{success}</Message>}
 
-      {errorMessage && (
-        <p className="text-red-400 text-sm mb-4">{errorMessage}</p>
-      )}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
-      {successMessage && (
-        <p className="text-green-600 text-sm mb-4">{successMessage}</p>
-      )}
-
-      <form onSubmit={handleUploadAndFinish} className="flex flex-col gap-4">
-
-        {/* STEP 1 */}
-
+       
         {step === 1 && (
           <>
-            <input
+            <FloatingInput
+              label="Nome do estabelecimento"
               name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Establishment name"
-              className={input}
+              value={form.name}
+              onChange={updateFormField}
             />
 
-            <input
+            <FloatingInput
+              label="Cidade"
               name="city"
-              value={formData.city}
-              onChange={handleChange}
-              placeholder="City / location"
-              className={input}
+              value={form.city}
+              onChange={updateFormField}
             />
 
-            <textarea
+            <FloatingTextarea
+              label="Descrição"
               name="description"
+              value={form.description}
+              onChange={updateFormField}
               rows={3}
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Describe your establishment"
-              className={textarea}
             />
 
-            <button
-              type="button"
-              onClick={handleNext}
-              className="w-full h-[52px] rounded-xl bg-gray-900 text-white font-semibold hover:bg-black"
+            <ActionButton
+              onClick={handleNextStep}
+              disabled={!isStepOneValid}
+              className="w-full mt-1"
             >
-              Next
-            </button>
+              Próximo
+            </ActionButton>
           </>
         )}
 
-        {/* STEP 2 */}
-
+   
         {step === 2 && (
           <>
-            <input
+            <FloatingInput
+              label="Telefone de contato"
               name="contact_phone"
-              value={formData.contact_phone}
-              onChange={handleChange}
-              placeholder="Contact phone"
-              className={input}
+              value={form.contact_phone}
+              onChange={updateFormField}
             />
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleBack}
-                className="h-[52px] px-6 rounded-xl border border-black/10 hover:bg-black/[0.03]"
+            <div className="flex gap-3 mt-1">
+              <ActionButton
+                variant="secondary"
+                onClick={handlePreviousStep}
+                className="min-w-[120px]"
               >
-                Back
-              </button>
+                Voltar
+              </ActionButton>
 
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex-1 h-[52px] rounded-xl bg-gray-900 text-white hover:bg-black"
+              <ActionButton
+                onClick={handleNextStep}
+                disabled={!isStepTwoValid}
+                className="flex-1"
               >
-                Next
-              </button>
+                Próximo
+              </ActionButton>
             </div>
           </>
         )}
 
-        {/* STEP 3 */}
-
+        
         {step === 3 && (
           <>
-            {!image ? (
-              <label className="w-40 h-40 mx-auto rounded-full border-2 border-dashed border-black/10 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition">
+            {!imageSrc ? (
+              <label className="relative mx-auto flex h-40 w-40 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-black/10 bg-black/[0.02] text-center text-sm text-gray-500 transition hover:border-gray-400 hover:bg-black/[0.04]">
+                <span className="px-4">Clique para enviar foto</span>
+
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={onFileChange}
-                  className="hidden"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 opacity-0"
                 />
-
-                <span className="text-3xl">📸</span>
-                <span className="text-xs text-gray-400 mt-1">
-                  Upload photo
-                </span>
               </label>
             ) : (
-              <div className="space-y-4">
-                <div className="relative w-full h-56 rounded-xl overflow-hidden bg-gray-200">
-                  <Cropper
-                    image={image}
-                    crop={crop}
-                    zoom={zoom}
-                    aspect={1}
-                    cropShape="round"
-                    onCropChange={setCrop}
-                    onCropComplete={onCropComplete}
-                    onZoomChange={setZoom}
-                  />
-                </div>
+              <div className="relative h-64 overflow-hidden rounded-2xl border border-black/10 bg-black/[0.02]">
+                <Cropper
+                  image={imageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  cropShape="round"
+                  showGrid={false}
+                  onCropChange={setCrop}
+                  onCropComplete={onCropComplete}
+                  onZoomChange={setZoom}
+                />
+              </div>
+            )}
+
+            {imageSrc && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  Zoom
+                </p>
 
                 <input
                   type="range"
@@ -300,42 +471,34 @@ export default function EstablishmentForm() {
                   onChange={(e) => setZoom(Number(e.target.value))}
                   className="w-full"
                 />
-
-                <button
-                  type="button"
-                  onClick={() => setImage(null)}
-                  className="text-sm text-gray-500 underline"
-                >
-                  Choose another photo
-                </button>
               </div>
             )}
 
-            {/* SUMMARY */}
-
-            <div className="p-4 rounded-xl border border-black/10 bg-black/[0.02] text-sm">
-              <p className="font-semibold mb-2">Summary</p>
-              <p>Name: {formData.name}</p>
-              <p>City: {formData.city}</p>
-              <p>Phone: {formData.contact_phone}</p>
-            </div>
+            {/* <div className="rounded-xl border border-black/10 bg-black/[0.02] p-4 text-sm text-gray-600">
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-gray-400">
+                Resumo
+              </p>
+              <p><span className="font-medium text-gray-700">Nome:</span> {form.name}</p>
+              <p><span className="font-medium text-gray-700">Cidade:</span> {form.city}</p>
+              <p><span className="font-medium text-gray-700">Telefone:</span> {form.contact_phone}</p>
+            </div> */}
 
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={handleBack}
-                className="h-[52px] px-6 rounded-xl border border-black/10"
+              <ActionButton
+                variant="secondary"
+                onClick={handlePreviousStep}
+                className="min-w-[120px]"
               >
-                Back
-              </button>
+                Voltar
+              </ActionButton>
 
-              <button
+              <ActionButton
                 type="submit"
-                disabled={loading}
-                className="flex-1 h-[52px] rounded-xl bg-gray-900 text-white hover:bg-black disabled:opacity-50"
+                disabled={submitting}
+                className="flex-1"
               >
-                {loading ? "Saving..." : "Finish"}
-              </button>
+                {submitting ? "Salvando..." : "Salvar perfil"}
+              </ActionButton>
             </div>
           </>
         )}

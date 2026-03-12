@@ -44,12 +44,16 @@ module.exports = (connectionBank) => {
         allowNull: false,
         validate: { notEmpty: true },
       },
+      profile_image: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
     },
     {
       tableName: "bands",
       timestamps: true,
       underscored: true,
-    }
+    },
   );
 
   return Band;

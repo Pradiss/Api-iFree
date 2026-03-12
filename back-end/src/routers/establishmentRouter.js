@@ -1,11 +1,24 @@
-const express = require("express")
-const router = express.Router()
+const express = require("express");
+const router = express.Router();
 
-const establishment = require("../controllers/establishmentControllers")
-const auth = require("../middlewares/authmiddlewares")
-const role = require("../middlewares/rolemiddlewares")
+const establishmentController = require("../controllers/establishmentControllers");
+const { uploadMiddleware, uploadImage } = require("../controllers/profileImage");
 
-router.post("/",auth, role("establishment"),establishment.register)
-router.get("/", establishment.showAll)
+const auth = require("../middlewares/authmiddlewares");
+const role = require("../middlewares/rolemiddlewares");
 
-module.exports = router; 
+router.post("/", auth, role("establishment"), establishmentController.register);
+
+// router.get("/profile", auth, role("establishment"), establishmentController.showProfile);
+
+router.get("/", establishmentController.showAll);
+
+router.post(
+  "/upload",
+  auth,
+  role("establishment"),
+  uploadMiddleware,
+  uploadImage
+);
+
+module.exports = router;
